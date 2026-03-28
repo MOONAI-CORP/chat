@@ -1,6 +1,7 @@
 /**
- * Limited Armor Chat Widget — Main UI
+ * Cozy Cloud Chat Widget — Main UI
  * Full-featured chat widget with product cards, email capture, order tracking.
+ * iMessage dark theme.
  */
 (function () {
   'use strict';
@@ -24,6 +25,10 @@
     const container = document.createElement('div');
     container.id = 'cozy-chat-widget';
 
+    const storeName = window.__cozyChatConfig?.storeName || 'Limited Armor';
+    const avatar = window.__cozyChatConfig?.avatar || '🛡️';
+    const initials = storeName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
     container.innerHTML = `
       <!-- Greeting Tooltip -->
       <div id="cozy-chat-greeting">
@@ -31,35 +36,54 @@
         <span id="cozy-chat-greeting-text"></span>
       </div>
 
-      <!-- Chat Bubble -->
+      <!-- Chat Launcher -->
       <button id="cozy-chat-bubble" aria-label="Open chat">
+        <div class="cc-launcher-inner">
+          <img class="cc-launcher-logo" src="" alt="" />
+          <svg class="cc-launcher-icon" width="30" height="30" viewBox="0 0 28 28" fill="none">
+            <path d="M14 2C7.373 2 2 6.925 2 13c0 2.21.72 4.26 1.95 5.96L2.5 22.5l4.04-1.3A12.07 12.07 0 0014 24c6.627 0 12-4.925 12-11S20.627 2 14 2z" fill="white"/>
+          </svg>
+          <svg class="cc-launcher-close" width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M18 6L6 18M6 6l12 12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
         <span id="cozy-chat-badge"></span>
-        <svg class="cc-chat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-        </svg>
-        <svg class="cc-close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"/>
-          <line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
       </button>
 
       <!-- Chat Panel -->
       <div id="cozy-chat-panel">
+        <!-- Header -->
         <div class="cc-header">
-          <div class="cc-header-left">
-            <div class="cc-header-avatar">${window.__cozyChatConfig?.avatar || '🛡️'}</div>
+          <!-- Brand banner -->
+          <div class="cc-brand-banner">
+            <div class="cc-brand-banner-bg"></div>
+            <img class="cc-brand-logo-img" src="" alt="Brand Logo" />
+            <span class="cc-brand-logo-text">${storeName}</span>
+          </div>
+          <!-- Agent row -->
+          <div class="cc-agent-row">
+            <div class="cc-avatar-wrap">
+              <div class="cc-header-avatar">
+                <img class="cc-avatar-photo" src="" alt="" />
+                <span class="cc-avatar-initials">${initials}</span>
+              </div>
+              <div class="cc-online-dot"></div>
+            </div>
             <div class="cc-header-info">
-              <div class="cc-header-name">${window.__cozyChatConfig?.storeName || 'Limited Armor'}</div>
-              <div class="cc-header-status"><span class="cc-status-dot"></span>Online now</div>
+              <div class="cc-header-name">${storeName}</div>
+              <div class="cc-header-status">Active now</div>
+            </div>
+            <div class="cc-header-actions">
+              <button class="cc-header-close" aria-label="Minimize chat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <path d="M5 12h14"/>
+                </svg>
+              </button>
             </div>
           </div>
-          <button class="cc-header-close" aria-label="Close chat">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </button>
         </div>
 
+        <!-- Messages area -->
         <div class="cc-messages" id="cozy-chat-messages">
           <div class="cc-typing" id="cozy-chat-typing">
             <div class="cc-typing-dot"></div>
@@ -68,19 +92,51 @@
           </div>
         </div>
 
+        <!-- Quick reply bar (hidden by default) -->
+        <div class="cc-qr-bar" id="cozy-chat-qr-bar"></div>
+
+        <!-- Input bar -->
         <div class="cc-input-area">
           <div class="cc-input-row">
-            <textarea class="cc-input" id="cozy-chat-input" placeholder="Type a message..." rows="1"></textarea>
-            <button class="cc-send-btn" id="cozy-chat-send" aria-label="Send message">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+            <div class="cc-input-wrap">
+              <button class="cc-img-btn" aria-label="Attach image" tabindex="-1">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <rect x="3" y="3" width="18" height="18" rx="3"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <path d="M21 15l-5-5L5 21"/>
+                </svg>
+              </button>
+              <textarea class="cc-input" id="cozy-chat-input" placeholder="Message" rows="1"></textarea>
+            </div>
+            <button class="cc-send-btn" id="cozy-chat-send" aria-label="Send message" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 19V5M5 12l7-7 7 7"/>
+              </svg>
             </button>
           </div>
-          <div class="cc-powered">Powered by <b>${window.__cozyChatConfig?.storeName || 'Limited Armor'}</b></div>
+          <div class="cc-powered">Powered by <b>${storeName}</b></div>
         </div>
       </div>
     `;
 
     document.body.appendChild(container);
+
+    // Apply avatar from config if it's a URL
+    const avatarConfig = window.__cozyChatConfig?.avatar;
+    if (avatarConfig && (avatarConfig.startsWith('http') || avatarConfig.startsWith('/'))) {
+      const photoEl = container.querySelector('.cc-avatar-photo');
+      photoEl.src = avatarConfig;
+      photoEl.onload = () => photoEl.classList.add('loaded');
+      // Also set on launcher
+      const launcherLogo = container.querySelector('.cc-launcher-logo');
+      launcherLogo.src = avatarConfig;
+      launcherLogo.onload = () => {
+        launcherLogo.classList.add('loaded');
+        container.querySelector('.cc-launcher-icon').style.opacity = '0';
+      };
+      container.querySelector('.cc-avatar-initials').style.opacity = '0';
+    }
+
     bindEvents();
   }
 
@@ -112,16 +168,12 @@
       }
     });
 
-    // Auto-resize textarea + toggle send button visibility
+    // Auto-resize textarea + toggle send button
     input.addEventListener('input', () => {
       input.style.height = 'auto';
-      input.style.height = Math.min(input.scrollHeight, 80) + 'px';
+      input.style.height = Math.min(input.scrollHeight, 100) + 'px';
       const sendBtn = document.getElementById('cozy-chat-send');
-      if (input.value.trim()) {
-        sendBtn.classList.add('cc-visible');
-      } else {
-        sendBtn.classList.remove('cc-visible');
-      }
+      sendBtn.disabled = !input.value.trim();
     });
 
     // Listen for behavioral triggers
@@ -149,10 +201,15 @@
     const panel = document.getElementById('cozy-chat-panel');
     const bubble = document.getElementById('cozy-chat-bubble');
     const badge = document.getElementById('cozy-chat-badge');
+    const launcherIcon = bubble.querySelector('.cc-launcher-icon');
+    const launcherClose = bubble.querySelector('.cc-launcher-close');
 
     panel.classList.add('cc-open');
-    bubble.classList.add('cc-open');
     badge.classList.remove('cc-show');
+
+    // Toggle launcher icons
+    if (launcherIcon) launcherIcon.classList.add('hide');
+    if (launcherClose) launcherClose.classList.add('show');
 
     window.dispatchEvent(new CustomEvent('cozy-chat-opened'));
     saveState();
@@ -163,7 +220,7 @@
     // Focus input
     setTimeout(() => {
       document.getElementById('cozy-chat-input').focus();
-    }, 350);
+    }, 420);
   }
 
   function closeChat() {
@@ -171,9 +228,15 @@
 
     const panel = document.getElementById('cozy-chat-panel');
     const bubble = document.getElementById('cozy-chat-bubble');
+    const launcherIcon = bubble.querySelector('.cc-launcher-icon');
+    const launcherClose = bubble.querySelector('.cc-launcher-close');
 
     panel.classList.remove('cc-open');
-    bubble.classList.remove('cc-open');
+
+    // Toggle launcher icons
+    if (launcherIcon) launcherIcon.classList.remove('hide');
+    if (launcherClose) launcherClose.classList.remove('show');
+
     saveState();
 
     window.dispatchEvent(new CustomEvent('cozy-chat-closed', {
@@ -313,7 +376,7 @@
     saveState();
     input.value = '';
     input.style.height = 'auto';
-    document.getElementById('cozy-chat-send').classList.remove('cc-visible');
+    document.getElementById('cozy-chat-send').disabled = true;
 
     // Add user message to UI
     addUserMessageBubble(message);
@@ -367,37 +430,44 @@
       }
     } catch (err) {
       hideTyping();
-      addAssistantMessage("Sorry, I'm having a moment! Please try again or email us at ${window.__cozyChatConfig?.supportEmail || 'support@limitedarmor.com'} 💙");
+      addAssistantMessage("Sorry, I'm having a moment! Please try again or email us at " + (window.__cozyChatConfig?.supportEmail || 'support@limitedarmor.com') + " 💙");
     }
   }
 
   // ── Render Messages ──
 
+  function currentTimeStr() {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
   function addUserMessageBubble(text) {
     const messagesEl = document.getElementById('cozy-chat-messages');
     const typing = document.getElementById('cozy-chat-typing');
 
-    // Remove previous delivered indicator
-    const oldDelivered = messagesEl.querySelector('.cc-delivered');
-    if (oldDelivered) oldDelivered.remove();
+    // Create row wrapper
+    const row = document.createElement('div');
+    row.className = 'cc-row sent';
 
-    // Remove tail from previous user bubble
-    const prevUserTail = messagesEl.querySelector('.cc-message.cc-user.cc-tail:last-of-type');
-    // Actually update all tails
-    updateBubbleTails(messagesEl);
+    const bub = document.createElement('div');
+    bub.className = 'cc-bubble';
+    bub.textContent = text;
+    row.appendChild(bub);
 
-    const msgEl = document.createElement('div');
-    msgEl.className = 'cc-message cc-user cc-tail';
-    msgEl.textContent = text;
-    messagesEl.insertBefore(msgEl, typing);
+    const ts = document.createElement('div');
+    ts.className = 'cc-ts';
+    ts.textContent = currentTimeStr();
+    row.appendChild(ts);
 
-    // Add delivered indicator
-    const delivered = document.createElement('div');
-    delivered.className = 'cc-delivered';
-    delivered.textContent = 'Delivered';
-    messagesEl.insertBefore(delivered, typing);
+    const rec = document.createElement('div');
+    rec.className = 'cc-receipt';
+    rec.textContent = 'Delivered';
+    row.appendChild(rec);
 
-    updateBubbleTails(messagesEl);
+    // Change to "Read" after a delay
+    setTimeout(() => { rec.textContent = 'Read'; }, 2200);
+
+    messagesEl.insertBefore(row, typing);
+    updateBubbleGrouping(messagesEl);
     scrollToBottom();
   }
 
@@ -405,35 +475,54 @@
     const messagesEl = document.getElementById('cozy-chat-messages');
     const typing = document.getElementById('cozy-chat-typing');
 
-    // Remove delivered indicator when agent replies
-    const oldDelivered = messagesEl.querySelector('.cc-delivered');
-    if (oldDelivered) oldDelivered.remove();
+    const row = document.createElement('div');
+    row.className = 'cc-row recv';
 
-    const msgEl = document.createElement('div');
-    msgEl.className = 'cc-message cc-assistant cc-tail';
-    msgEl.innerHTML = formatMessage(text);
-    messagesEl.insertBefore(msgEl, typing);
+    const bub = document.createElement('div');
+    bub.className = 'cc-bubble';
+    bub.innerHTML = formatMessage(text);
+    row.appendChild(bub);
 
-    updateBubbleTails(messagesEl);
+    const ts = document.createElement('div');
+    ts.className = 'cc-ts';
+    ts.textContent = currentTimeStr();
+    row.appendChild(ts);
+
+    messagesEl.insertBefore(row, typing);
+    updateBubbleGrouping(messagesEl);
     scrollToBottom();
   }
 
-  // Group bubbles — only the last bubble in a consecutive group gets the tail
-  function updateBubbleTails(container) {
-    const msgs = container.querySelectorAll('.cc-message');
-    msgs.forEach((msg, i) => {
-      const next = msgs[i + 1];
-      const isUser = msg.classList.contains('cc-user');
-      const nextSameSender = next && (
-        (isUser && next.classList.contains('cc-user')) ||
-        (!isUser && next.classList.contains('cc-assistant'))
-      );
-      if (nextSameSender) {
-        msg.classList.remove('cc-tail');
-      } else {
-        msg.classList.add('cc-tail');
-      }
+  // Group bubbles — apply top/mid/bottom classes for consecutive same-sender messages
+  function updateBubbleGrouping(container) {
+    const rows = container.querySelectorAll('.cc-row');
+    rows.forEach((row) => {
+      const bubble = row.querySelector('.cc-bubble');
+      if (!bubble) return;
+      bubble.classList.remove('top', 'mid', 'bottom');
     });
+
+    const rowArr = Array.from(rows);
+    for (let i = 0; i < rowArr.length; i++) {
+      const row = rowArr[i];
+      const bubble = row.querySelector('.cc-bubble');
+      if (!bubble) continue;
+
+      const isSent = row.classList.contains('sent');
+      const prev = rowArr[i - 1];
+      const next = rowArr[i + 1];
+      const prevSame = prev && prev.classList.contains(isSent ? 'sent' : 'recv') && prev.querySelector('.cc-bubble');
+      const nextSame = next && next.classList.contains(isSent ? 'sent' : 'recv') && next.querySelector('.cc-bubble');
+
+      if (prevSame && nextSame) {
+        bubble.classList.add('mid');
+      } else if (!prevSame && nextSame) {
+        bubble.classList.add('top');
+      } else if (prevSame && !nextSame) {
+        bubble.classList.add('bottom');
+      }
+      // If neither prevSame nor nextSame => standalone, no class needed (default full radius)
+    }
   }
 
   function formatMessage(text) {
@@ -450,8 +539,13 @@
     const messagesEl = document.getElementById('cozy-chat-messages');
     const typing = document.getElementById('cozy-chat-typing');
 
-    const card = document.createElement('div');
+    const row = document.createElement('div');
+    row.className = 'cc-row recv';
+
+    const card = document.createElement('a');
     card.className = 'cc-product-card';
+    card.href = product.url || '#';
+    card.target = '_blank';
 
     const priceHtml = product.compareAtPrice && parseFloat(product.compareAtPrice) > parseFloat(product.price)
       ? `<span class="cc-sale-price">$${parseFloat(product.price).toFixed(2)}</span>
@@ -460,15 +554,18 @@
       : `<span class="cc-sale-price">$${parseFloat(product.price).toFixed(2)}</span>`;
 
     card.innerHTML = `
-      ${product.image ? `<img src="${product.image}" alt="${product.title}" loading="lazy">` : ''}
+      <div class="cc-product-thumb">
+        ${product.image ? `<img src="${product.image}" alt="${product.title}" loading="lazy">` : '📦'}
+      </div>
       <div class="cc-product-card-body">
         <div class="cc-product-card-title">${product.title}</div>
         <div class="cc-product-card-price">${priceHtml}</div>
-        <a href="${product.url}" target="_blank" class="cc-product-card-btn">View Product →</a>
+        <span class="cc-product-card-btn">View Product →</span>
       </div>
     `;
 
-    messagesEl.insertBefore(card, typing);
+    row.appendChild(card);
+    messagesEl.insertBefore(row, typing);
     scrollToBottom();
   }
 
@@ -516,7 +613,7 @@
         `;
       } catch (e) {
         capture.querySelector('.cc-email-capture-form').innerHTML = `
-          <div class="cc-email-capture-success" style="color: var(--cc-text-light);">
+          <div class="cc-email-capture-success" style="color: rgba(255,255,255,0.4);">
             Something went wrong. Email ${window.__cozyChatConfig?.supportEmail || 'support@limitedarmor.com'} for your discount!
           </div>
         `;
@@ -621,9 +718,9 @@
 
   function scrollToBottom() {
     const messagesEl = document.getElementById('cozy-chat-messages');
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       messagesEl.scrollTop = messagesEl.scrollHeight;
-    }, 50);
+    });
   }
 
   // ── Persist State ──
