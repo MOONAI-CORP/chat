@@ -1,7 +1,7 @@
 /**
  * Cozy Cloud Chat Widget — Main UI
  * Full-featured chat widget with product cards, email capture, order tracking.
- * iMessage dark theme.
+ * iMessage dark theme with imsg- prefix structure.
  */
 (function () {
   'use strict';
@@ -26,55 +26,56 @@
     container.id = 'cozy-chat-widget';
 
     const storeName = window.__cozyChatConfig?.storeName || 'Limited Armor';
-    const avatar = window.__cozyChatConfig?.avatar || '🛡️';
     const initials = storeName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
     container.innerHTML = `
       <!-- Greeting Tooltip -->
       <div id="cozy-chat-greeting">
-        <button class="cc-greeting-close" aria-label="Close">&times;</button>
+        <button class="imsg-greeting-close" aria-label="Close">&times;</button>
         <span id="cozy-chat-greeting-text"></span>
       </div>
 
-      <!-- Chat Launcher -->
-      <button id="cozy-chat-bubble" aria-label="Open chat">
-        <div class="cc-launcher-inner">
-          <img class="cc-launcher-logo" src="" alt="" />
-          <svg class="cc-launcher-icon" width="30" height="30" viewBox="0 0 28 28" fill="none">
+      <!-- Launcher -->
+      <button id="imsg-launcher" aria-label="Open chat">
+        <div id="imsg-launcher-inner">
+          <img id="imsg-launcher-logo" src="" alt="" />
+          <svg id="imsg-launcher-icon" width="30" height="30" viewBox="0 0 28 28" fill="none">
             <path d="M14 2C7.373 2 2 6.925 2 13c0 2.21.72 4.26 1.95 5.96L2.5 22.5l4.04-1.3A12.07 12.07 0 0014 24c6.627 0 12-4.925 12-11S20.627 2 14 2z" fill="white"/>
           </svg>
-          <svg class="cc-launcher-close" width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <svg id="imsg-launcher-close" width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path d="M18 6L6 18M6 6l12 12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
           </svg>
         </div>
-        <span id="cozy-chat-badge"></span>
+        <span id="imsg-badge">1</span>
       </button>
 
-      <!-- Chat Panel -->
-      <div id="cozy-chat-panel">
+      <!-- Chat Window -->
+      <div id="imsg-window" role="dialog" aria-label="Chat support">
+
         <!-- Header -->
-        <div class="cc-header">
+        <div class="imsg-header">
           <!-- Brand banner -->
-          <div class="cc-brand-banner">
-            <div class="cc-brand-banner-bg"></div>
-            <img class="cc-brand-logo-img" src="" alt="Brand Logo" />
-            <span class="cc-brand-logo-text">${storeName}</span>
+          <div class="imsg-brand-banner">
+            <div class="imsg-brand-banner-bg"></div>
+            <img id="imsg-brand-logo-img" src="" alt="Brand Logo" />
+            <span id="imsg-brand-logo-text">${storeName}</span>
           </div>
+
           <!-- Agent row -->
-          <div class="cc-agent-row">
-            <div class="cc-avatar-wrap">
-              <div class="cc-header-avatar">
-                <img class="cc-avatar-photo" src="" alt="" />
-                <span class="cc-avatar-initials">${initials}</span>
+          <div class="imsg-agent-row">
+            <div class="imsg-avatar-wrap">
+              <div class="imsg-avatar" id="imsg-avatar">
+                <img class="imsg-avatar-photo" id="imsg-avatar-photo" src="" alt="" />
+                <span class="imsg-avatar-initials" id="imsg-avatar-initials">${initials}</span>
               </div>
-              <div class="cc-online-dot"></div>
+              <div class="imsg-online-dot"></div>
             </div>
-            <div class="cc-header-info">
-              <div class="cc-header-name">${storeName}</div>
-              <div class="cc-header-status">Active now</div>
+            <div class="imsg-header-info">
+              <div class="imsg-header-name" id="imsg-agent-name">${storeName}</div>
+              <div class="imsg-header-status">Active now</div>
             </div>
-            <div class="cc-header-actions">
-              <button class="cc-header-close" aria-label="Minimize chat">
+            <div class="imsg-header-actions">
+              <button class="imsg-hbtn" id="imsg-minimize-btn" title="Minimize">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                   <path d="M5 12h14"/>
                 </svg>
@@ -84,38 +85,39 @@
         </div>
 
         <!-- Messages area -->
-        <div class="cc-messages" id="cozy-chat-messages">
-          <div class="cc-typing" id="cozy-chat-typing">
-            <div class="cc-typing-dot"></div>
-            <div class="cc-typing-dot"></div>
-            <div class="cc-typing-dot"></div>
+        <div class="imsg-messages" id="imsg-msgs">
+          <div class="imsg-typing" id="imsg-typing-indicator">
+            <span></span><span></span><span></span>
           </div>
         </div>
 
-        <!-- Quick reply bar (hidden by default) -->
-        <div class="cc-qr-bar" id="cozy-chat-qr-bar"></div>
+        <!-- Quick replies -->
+        <div class="imsg-qr-bar" id="imsg-qr-bar"></div>
 
         <!-- Input bar -->
-        <div class="cc-input-area">
-          <div class="cc-input-row">
-            <div class="cc-input-wrap">
-              <button class="cc-img-btn" aria-label="Attach image" tabindex="-1">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                  <rect x="3" y="3" width="18" height="18" rx="3"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/>
-                  <path d="M21 15l-5-5L5 21"/>
-                </svg>
-              </button>
-              <textarea class="cc-input" id="cozy-chat-input" placeholder="Message" rows="1"></textarea>
-            </div>
-            <button class="cc-send-btn" id="cozy-chat-send" aria-label="Send message" disabled>
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 19V5M5 12l7-7 7 7"/>
+        <div class="imsg-input-bar">
+          <div class="imsg-input-wrap">
+            <button class="imsg-img-btn" id="imsg-img-btn" title="Send image">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <rect x="3" y="3" width="18" height="18" rx="3"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <path d="M21 15l-5-5L5 21"/>
               </svg>
             </button>
+            <textarea
+              id="imsg-textarea"
+              class="imsg-textarea"
+              placeholder="Message"
+              rows="1"
+            ></textarea>
           </div>
-          <div class="cc-powered">Powered by <b>${storeName}</b></div>
+          <button class="imsg-send-btn" id="imsg-send-btn" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 19V5M5 12l7-7 7 7"/>
+            </svg>
+          </button>
         </div>
+
       </div>
     `;
 
@@ -124,17 +126,17 @@
     // Apply avatar from config if it's a URL
     const avatarConfig = window.__cozyChatConfig?.avatar;
     if (avatarConfig && (avatarConfig.startsWith('http') || avatarConfig.startsWith('/'))) {
-      const photoEl = container.querySelector('.cc-avatar-photo');
+      const photoEl = container.querySelector('#imsg-avatar-photo');
       photoEl.src = avatarConfig;
       photoEl.onload = () => photoEl.classList.add('loaded');
       // Also set on launcher
-      const launcherLogo = container.querySelector('.cc-launcher-logo');
+      const launcherLogo = container.querySelector('#imsg-launcher-logo');
       launcherLogo.src = avatarConfig;
       launcherLogo.onload = () => {
         launcherLogo.classList.add('loaded');
-        container.querySelector('.cc-launcher-icon').style.opacity = '0';
+        container.querySelector('#imsg-launcher-icon').style.opacity = '0';
       };
-      container.querySelector('.cc-avatar-initials').style.opacity = '0';
+      container.querySelector('#imsg-avatar-initials').style.opacity = '0';
     }
 
     bindEvents();
@@ -143,15 +145,15 @@
   // ── Event Bindings ──
 
   function bindEvents() {
-    const bubble = document.getElementById('cozy-chat-bubble');
-    const closeBtn = document.querySelector('.cc-header-close');
-    const sendBtn = document.getElementById('cozy-chat-send');
-    const input = document.getElementById('cozy-chat-input');
+    const launcher = document.getElementById('imsg-launcher');
+    const minimizeBtn = document.getElementById('imsg-minimize-btn');
+    const sendBtn = document.getElementById('imsg-send-btn');
+    const input = document.getElementById('imsg-textarea');
     const greeting = document.getElementById('cozy-chat-greeting');
-    const greetingClose = greeting.querySelector('.cc-greeting-close');
+    const greetingClose = greeting.querySelector('.imsg-greeting-close');
 
-    bubble.addEventListener('click', toggleChat);
-    closeBtn.addEventListener('click', closeChat);
+    launcher.addEventListener('click', toggleChat);
+    minimizeBtn.addEventListener('click', toggleChat);
     sendBtn.addEventListener('click', sendMessage);
     greeting.addEventListener('click', (e) => {
       if (e.target !== greetingClose) openChat();
@@ -172,8 +174,7 @@
     input.addEventListener('input', () => {
       input.style.height = 'auto';
       input.style.height = Math.min(input.scrollHeight, 100) + 'px';
-      const sendBtn = document.getElementById('cozy-chat-send');
-      sendBtn.disabled = !input.value.trim();
+      document.getElementById('imsg-send-btn').disabled = !input.value.trim();
     });
 
     // Listen for behavioral triggers
@@ -198,18 +199,15 @@
     state.isOpen = true;
     hideGreeting();
 
-    const panel = document.getElementById('cozy-chat-panel');
-    const bubble = document.getElementById('cozy-chat-bubble');
-    const badge = document.getElementById('cozy-chat-badge');
-    const launcherIcon = bubble.querySelector('.cc-launcher-icon');
-    const launcherClose = bubble.querySelector('.cc-launcher-close');
+    const win = document.getElementById('imsg-window');
+    const badge = document.getElementById('imsg-badge');
+    const icon = document.getElementById('imsg-launcher-icon');
+    const close = document.getElementById('imsg-launcher-close');
 
-    panel.classList.add('cc-open');
-    badge.classList.remove('cc-show');
-
-    // Toggle launcher icons
-    if (launcherIcon) launcherIcon.classList.add('hide');
-    if (launcherClose) launcherClose.classList.add('show');
+    win.classList.add('open');
+    badge.style.display = 'none';
+    icon.classList.add('hide');
+    close.classList.add('show');
 
     window.dispatchEvent(new CustomEvent('cozy-chat-opened'));
     saveState();
@@ -219,23 +217,20 @@
 
     // Focus input
     setTimeout(() => {
-      document.getElementById('cozy-chat-input').focus();
+      document.getElementById('imsg-textarea').focus();
     }, 420);
   }
 
   function closeChat() {
     state.isOpen = false;
 
-    const panel = document.getElementById('cozy-chat-panel');
-    const bubble = document.getElementById('cozy-chat-bubble');
-    const launcherIcon = bubble.querySelector('.cc-launcher-icon');
-    const launcherClose = bubble.querySelector('.cc-launcher-close');
+    const win = document.getElementById('imsg-window');
+    const icon = document.getElementById('imsg-launcher-icon');
+    const close = document.getElementById('imsg-launcher-close');
 
-    panel.classList.remove('cc-open');
-
-    // Toggle launcher icons
-    if (launcherIcon) launcherIcon.classList.remove('hide');
-    if (launcherClose) launcherClose.classList.remove('show');
+    win.classList.remove('open');
+    icon.classList.remove('hide');
+    close.classList.remove('show');
 
     saveState();
 
@@ -271,10 +266,10 @@
       const greetingEl = document.getElementById('cozy-chat-greeting');
       const textEl = document.getElementById('cozy-chat-greeting-text');
       textEl.textContent = data.message;
-      greetingEl.classList.add('cc-show');
+      greetingEl.classList.add('imsg-show');
 
       // Show badge
-      document.getElementById('cozy-chat-badge').classList.add('cc-show');
+      document.getElementById('imsg-badge').style.display = 'flex';
 
       // Auto-hide after 15s
       setTimeout(() => {
@@ -287,26 +282,25 @@
 
   function hideGreeting() {
     const greetingEl = document.getElementById('cozy-chat-greeting');
-    greetingEl.classList.remove('cc-show');
+    greetingEl.classList.remove('imsg-show');
   }
 
   // ── Session Management ──
 
   function clearMessages() {
-    const messagesEl = document.getElementById('cozy-chat-messages');
-    const typing = document.getElementById('cozy-chat-typing');
+    const messagesEl = document.getElementById('imsg-msgs');
+    const typing = document.getElementById('imsg-typing-indicator');
     messagesEl.innerHTML = '';
     messagesEl.appendChild(typing);
   }
 
-  function addTimestamp() {
-    const messagesEl = document.getElementById('cozy-chat-messages');
-    const typing = document.getElementById('cozy-chat-typing');
-    const ts = document.createElement('div');
-    ts.className = 'cc-timestamp';
-    const now = new Date();
-    ts.textContent = 'Today ' + now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    messagesEl.insertBefore(ts, typing);
+  function addDateSep(text) {
+    const messagesEl = document.getElementById('imsg-msgs');
+    const typing = document.getElementById('imsg-typing-indicator');
+    const d = document.createElement('div');
+    d.className = 'imsg-date-sep';
+    d.textContent = text;
+    messagesEl.insertBefore(d, typing);
   }
 
   function loadSession() {
@@ -316,7 +310,7 @@
     clearMessages();
 
     const savedConvoId = sessionStorage.getItem('cozy_convo_id');
-    addTimestamp();
+    addDateSep('Today');
     if (savedConvoId) {
       state.conversationId = savedConvoId;
       loadHistory(savedConvoId);
@@ -332,7 +326,7 @@
 
       // Clear again in case of race condition
       clearMessages();
-      addTimestamp();
+      addDateSep('Today');
 
       if (data.messages && data.messages.length > 0) {
         for (const msg of data.messages) {
@@ -368,7 +362,7 @@
   // ── Send Message ──
 
   async function sendMessage() {
-    const input = document.getElementById('cozy-chat-input');
+    const input = document.getElementById('imsg-textarea');
     const message = input.value.trim();
     if (!message) return;
 
@@ -376,7 +370,7 @@
     saveState();
     input.value = '';
     input.style.height = 'auto';
-    document.getElementById('cozy-chat-send').disabled = true;
+    document.getElementById('imsg-send-btn').disabled = true;
 
     // Add user message to UI
     addUserMessageBubble(message);
@@ -441,25 +435,24 @@
   }
 
   function addUserMessageBubble(text) {
-    const messagesEl = document.getElementById('cozy-chat-messages');
-    const typing = document.getElementById('cozy-chat-typing');
+    const messagesEl = document.getElementById('imsg-msgs');
+    const typing = document.getElementById('imsg-typing-indicator');
 
-    // Create row wrapper
     const row = document.createElement('div');
-    row.className = 'cc-row sent';
+    row.className = 'imsg-row sent';
 
     const bub = document.createElement('div');
-    bub.className = 'cc-bubble';
+    bub.className = 'imsg-bubble';
     bub.textContent = text;
     row.appendChild(bub);
 
     const ts = document.createElement('div');
-    ts.className = 'cc-ts';
+    ts.className = 'imsg-ts';
     ts.textContent = currentTimeStr();
     row.appendChild(ts);
 
     const rec = document.createElement('div');
-    rec.className = 'cc-receipt';
+    rec.className = 'imsg-receipt';
     rec.textContent = 'Delivered';
     row.appendChild(rec);
 
@@ -472,19 +465,19 @@
   }
 
   function addAssistantMessage(text) {
-    const messagesEl = document.getElementById('cozy-chat-messages');
-    const typing = document.getElementById('cozy-chat-typing');
+    const messagesEl = document.getElementById('imsg-msgs');
+    const typing = document.getElementById('imsg-typing-indicator');
 
     const row = document.createElement('div');
-    row.className = 'cc-row recv';
+    row.className = 'imsg-row recv';
 
     const bub = document.createElement('div');
-    bub.className = 'cc-bubble';
+    bub.className = 'imsg-bubble';
     bub.innerHTML = formatMessage(text);
     row.appendChild(bub);
 
     const ts = document.createElement('div');
-    ts.className = 'cc-ts';
+    ts.className = 'imsg-ts';
     ts.textContent = currentTimeStr();
     row.appendChild(ts);
 
@@ -495,9 +488,9 @@
 
   // Group bubbles — apply top/mid/bottom classes for consecutive same-sender messages
   function updateBubbleGrouping(container) {
-    const rows = container.querySelectorAll('.cc-row');
+    const rows = container.querySelectorAll('.imsg-row');
     rows.forEach((row) => {
-      const bubble = row.querySelector('.cc-bubble');
+      const bubble = row.querySelector('.imsg-bubble');
       if (!bubble) return;
       bubble.classList.remove('top', 'mid', 'bottom');
     });
@@ -505,14 +498,14 @@
     const rowArr = Array.from(rows);
     for (let i = 0; i < rowArr.length; i++) {
       const row = rowArr[i];
-      const bubble = row.querySelector('.cc-bubble');
+      const bubble = row.querySelector('.imsg-bubble');
       if (!bubble) continue;
 
       const isSent = row.classList.contains('sent');
       const prev = rowArr[i - 1];
       const next = rowArr[i + 1];
-      const prevSame = prev && prev.classList.contains(isSent ? 'sent' : 'recv') && prev.querySelector('.cc-bubble');
-      const nextSame = next && next.classList.contains(isSent ? 'sent' : 'recv') && next.querySelector('.cc-bubble');
+      const prevSame = prev && prev.classList.contains(isSent ? 'sent' : 'recv') && prev.querySelector('.imsg-bubble');
+      const nextSame = next && next.classList.contains(isSent ? 'sent' : 'recv') && next.querySelector('.imsg-bubble');
 
       if (prevSame && nextSame) {
         bubble.classList.add('mid');
@@ -536,31 +529,31 @@
   // ── Product Card ──
 
   function renderProductCard(product) {
-    const messagesEl = document.getElementById('cozy-chat-messages');
-    const typing = document.getElementById('cozy-chat-typing');
+    const messagesEl = document.getElementById('imsg-msgs');
+    const typing = document.getElementById('imsg-typing-indicator');
 
     const row = document.createElement('div');
-    row.className = 'cc-row recv';
+    row.className = 'imsg-row recv';
 
     const card = document.createElement('a');
-    card.className = 'cc-product-card';
+    card.className = 'imsg-product-card';
     card.href = product.url || '#';
     card.target = '_blank';
 
     const priceHtml = product.compareAtPrice && parseFloat(product.compareAtPrice) > parseFloat(product.price)
-      ? `<span class="cc-sale-price">$${parseFloat(product.price).toFixed(2)}</span>
-         <span class="cc-original-price">$${parseFloat(product.compareAtPrice).toFixed(2)}</span>
-         ${product.discount ? `<span class="cc-badge">${product.discount}</span>` : ''}`
-      : `<span class="cc-sale-price">$${parseFloat(product.price).toFixed(2)}</span>`;
+      ? `<span style="font-weight:700;font-size:14px;color:#34c759;">$${parseFloat(product.price).toFixed(2)}</span>
+         <span style="font-size:11px;color:rgba(255,255,255,0.35);text-decoration:line-through;">$${parseFloat(product.compareAtPrice).toFixed(2)}</span>
+         ${product.discount ? `<span style="background:rgba(255,243,205,0.15);color:#fbbf24;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;">${product.discount}</span>` : ''}`
+      : `<span style="font-weight:700;font-size:14px;color:#34c759;">$${parseFloat(product.price).toFixed(2)}</span>`;
 
     card.innerHTML = `
-      <div class="cc-product-thumb">
+      <div class="imsg-product-thumb">
         ${product.image ? `<img src="${product.image}" alt="${product.title}" loading="lazy">` : '📦'}
       </div>
-      <div class="cc-product-card-body">
-        <div class="cc-product-card-title">${product.title}</div>
-        <div class="cc-product-card-price">${priceHtml}</div>
-        <span class="cc-product-card-btn">View Product →</span>
+      <div class="imsg-product-body">
+        <div class="imsg-product-name">${product.title}</div>
+        <div class="imsg-product-price">${priceHtml}</div>
+        <span class="imsg-product-cta">View Product →</span>
       </div>
     `;
 
@@ -572,22 +565,22 @@
   // ── Email Capture ──
 
   function renderEmailCapture() {
-    const messagesEl = document.getElementById('cozy-chat-messages');
-    const typing = document.getElementById('cozy-chat-typing');
+    const messagesEl = document.getElementById('imsg-msgs');
+    const typing = document.getElementById('imsg-typing-indicator');
 
     const capture = document.createElement('div');
-    capture.className = 'cc-email-capture';
+    capture.className = 'imsg-email-capture';
     capture.innerHTML = `
-      <div class="cc-email-capture-title">Get 10% Off Your First Order! 💌</div>
-      <div class="cc-email-capture-subtitle">Drop your email and we'll send your exclusive discount code.</div>
-      <div class="cc-email-capture-form">
-        <input type="email" class="cc-email-capture-input" placeholder="your@email.com">
-        <button class="cc-email-capture-submit">Get Code</button>
+      <div class="imsg-email-capture-title">Get 10% Off Your First Order! 💌</div>
+      <div class="imsg-email-capture-subtitle">Drop your email and we'll send your exclusive discount code.</div>
+      <div class="imsg-email-capture-form">
+        <input type="email" class="imsg-email-capture-input" placeholder="your@email.com">
+        <button class="imsg-email-capture-submit">Get Code</button>
       </div>
     `;
 
-    const submitBtn = capture.querySelector('.cc-email-capture-submit');
-    const emailInput = capture.querySelector('.cc-email-capture-input');
+    const submitBtn = capture.querySelector('.imsg-email-capture-submit');
+    const emailInput = capture.querySelector('.imsg-email-capture-input');
 
     submitBtn.addEventListener('click', async () => {
       const email = emailInput.value.trim();
@@ -605,15 +598,15 @@
         });
         const data = await res.json();
 
-        capture.querySelector('.cc-email-capture-form').innerHTML = `
-          <div class="cc-email-capture-success">
+        capture.querySelector('.imsg-email-capture-form').innerHTML = `
+          <div class="imsg-email-capture-success">
             🎉 Your code: <strong>${data.discountCode}</strong><br>
             <small>Applied at checkout automatically!</small>
           </div>
         `;
       } catch (e) {
-        capture.querySelector('.cc-email-capture-form').innerHTML = `
-          <div class="cc-email-capture-success" style="color: rgba(255,255,255,0.4);">
+        capture.querySelector('.imsg-email-capture-form').innerHTML = `
+          <div class="imsg-email-capture-success" style="color: rgba(255,255,255,0.4);">
             Something went wrong. Email ${window.__cozyChatConfig?.supportEmail || 'support@limitedarmor.com'} for your discount!
           </div>
         `;
@@ -631,19 +624,19 @@
   // ── Order Card ──
 
   function renderOrderCard(orderData) {
-    const messagesEl = document.getElementById('cozy-chat-messages');
-    const typing = document.getElementById('cozy-chat-typing');
+    const messagesEl = document.getElementById('imsg-msgs');
+    const typing = document.getElementById('imsg-typing-indicator');
 
     // Handle single order or array
     const orders = Array.isArray(orderData) ? orderData : [orderData];
 
     for (const order of orders) {
       const card = document.createElement('div');
-      card.className = 'cc-order-card';
+      card.className = 'imsg-order-card';
 
-      const statusClass = order.fulfillment === 'fulfilled' ? 'cc-fulfilled'
-        : order.fulfillment === 'cancelled' ? 'cc-cancelled'
-        : 'cc-unfulfilled';
+      const statusClass = order.fulfillment === 'fulfilled' ? 'imsg-fulfilled'
+        : order.fulfillment === 'cancelled' ? 'imsg-cancelled'
+        : 'imsg-unfulfilled';
 
       const statusLabel = order.fulfillment === 'fulfilled' ? 'Shipped'
         : order.fulfillment === 'unfulfilled' ? 'Processing'
@@ -652,21 +645,21 @@
       let itemsHtml = '';
       if (order.items) {
         itemsHtml = order.items.map(i =>
-          `<div class="cc-order-card-row"><span>${i.title} x${i.quantity}</span><strong>$${i.price}</strong></div>`
+          `<div class="imsg-order-card-row"><span>${i.title} x${i.quantity}</span><strong>$${i.price}</strong></div>`
         ).join('');
       }
 
       card.innerHTML = `
-        <div class="cc-order-card-header">Order ${order.number}</div>
-        <div class="cc-order-card-row">
+        <div class="imsg-order-card-header">Order ${order.number}</div>
+        <div class="imsg-order-card-row">
           <span>Status</span>
-          <span class="cc-order-card-status ${statusClass}">${statusLabel}</span>
+          <span class="imsg-order-card-status ${statusClass}">${statusLabel}</span>
         </div>
-        <div class="cc-order-card-row">
+        <div class="imsg-order-card-row">
           <span>Total</span>
           <strong>$${order.total}</strong>
         </div>
-        <div class="cc-order-card-row">
+        <div class="imsg-order-card-row">
           <span>Placed</span>
           <span>${new Date(order.createdAt).toLocaleDateString()}</span>
         </div>
@@ -682,17 +675,17 @@
   // ── Links ──
 
   function renderLinks(links) {
-    const messagesEl = document.getElementById('cozy-chat-messages');
-    const typing = document.getElementById('cozy-chat-typing');
+    const messagesEl = document.getElementById('imsg-msgs');
+    const typing = document.getElementById('imsg-typing-indicator');
 
     const linksContainer = document.createElement('div');
-    linksContainer.style.cssText = 'align-self: flex-start; display: flex; flex-wrap: wrap; gap: 6px;';
+    linksContainer.style.cssText = 'align-self: flex-start; display: flex; flex-wrap: wrap; gap: 7px; padding: 4px 0;';
 
     for (const link of links) {
       const a = document.createElement('a');
       a.href = link.url.startsWith('/') ? STORE_URL + link.url : link.url;
       a.target = '_blank';
-      a.className = 'cc-link-btn';
+      a.className = 'imsg-qr-chip';
       a.textContent = link.text;
       linksContainer.appendChild(a);
     }
@@ -705,19 +698,19 @@
 
   function showTyping() {
     state.isTyping = true;
-    document.getElementById('cozy-chat-typing').classList.add('cc-show');
+    document.getElementById('imsg-typing-indicator').classList.add('imsg-show');
     scrollToBottom();
   }
 
   function hideTyping() {
     state.isTyping = false;
-    document.getElementById('cozy-chat-typing').classList.remove('cc-show');
+    document.getElementById('imsg-typing-indicator').classList.remove('imsg-show');
   }
 
   // ── Scroll ──
 
   function scrollToBottom() {
-    const messagesEl = document.getElementById('cozy-chat-messages');
+    const messagesEl = document.getElementById('imsg-msgs');
     requestAnimationFrame(() => {
       messagesEl.scrollTop = messagesEl.scrollHeight;
     });
