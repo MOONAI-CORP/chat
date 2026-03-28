@@ -1,752 +1,758 @@
 /**
- * Cozy Cloud Chat Widget — Main UI
- * Full-featured chat widget with product cards, email capture, order tracking.
- * iMessage dark theme with imsg- prefix structure.
+ * Limited Armor Chat Widget — iMessage Dark Theme
+ * Direct port of chat-widget-v2.html reference
+ * Bot replies powered by real API backend
  */
-(function () {
-  'use strict';
+(function() {
 
-  const HOST = window.__cozyChatConfig?.host || '';
-  const STORE_URL = window.__cozyChatConfig?.storeUrl || 'https://limitedarmor.com';
+/* ══════════════════════════════════════════════════════════════════
+   CONFIG
+   ══════════════════════════════════════════════════════════════════ */
+var HOST = (window.__cozyChatConfig && window.__cozyChatConfig.host) || '';
+var STORE_URL = (window.__cozyChatConfig && window.__cozyChatConfig.storeUrl) || 'https://limitedarmor.com';
 
-  const state = {
-    isOpen: false,
-    conversationId: null,
-    visitorId: null,
-    messages: [],
-    isTyping: false,
-    hadInteraction: false,
-    greetingShown: false,
-  };
+var IMSG = {
+  agentName:   (window.__cozyChatConfig && window.__cozyChatConfig.storeName) || 'Limited Armor',
+  brandName:   (window.__cozyChatConfig && window.__cozyChatConfig.storeName) || 'Limited Armor',
+  brandColor:  '#007aff',
+  accentColor: '#0a84ff',
+  greeting:    "Hey! 👋 Welcome to " + ((window.__cozyChatConfig && window.__cozyChatConfig.storeName) || 'Limited Armor') + ". I'm here to help with cases, bands & accessories. What can I help you with?",
+  quickReplies: ['Track my order 📦', 'Return policy', 'Product info', 'Talk to a human 💬'],
+  featuredProduct: null
+};
 
-  // ── Build DOM ──
+var imsgIsOpen = false;
+var imsgMsgCount = 0;
+var imsgPendingImg = null;
+var imsgConversationId = sessionStorage.getItem('cozy_convo_id') || null;
+var imsgVisitorId = null;
+var imsgHadInteraction = sessionStorage.getItem('cozy_chat_interacted') === '1';
+var imsgGreetingShown = sessionStorage.getItem('cozy_greeting_shown') === '1';
+var imsgTypingLock = false;
 
-  function createWidget() {
-    const container = document.createElement('div');
-    container.id = 'cozy-chat-widget';
-
-    const storeName = window.__cozyChatConfig?.storeName || 'Limited Armor';
-    const initials = storeName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-
-    container.innerHTML = `
-      <!-- Greeting Tooltip -->
-      <div id="cozy-chat-greeting">
-        <button class="imsg-greeting-close" aria-label="Close">&times;</button>
-        <span id="cozy-chat-greeting-text"></span>
-      </div>
-
-      <!-- Launcher -->
-      <button id="imsg-launcher" aria-label="Open chat">
-        <div id="imsg-launcher-inner">
-          <img id="imsg-launcher-logo" src="" alt="" />
-          <svg id="imsg-launcher-icon" width="30" height="30" viewBox="0 0 28 28" fill="none">
-            <path d="M14 2C7.373 2 2 6.925 2 13c0 2.21.72 4.26 1.95 5.96L2.5 22.5l4.04-1.3A12.07 12.07 0 0014 24c6.627 0 12-4.925 12-11S20.627 2 14 2z" fill="white"/>
-          </svg>
-          <svg id="imsg-launcher-close" width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M18 6L6 18M6 6l12 12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <span id="imsg-badge">1</span>
-      </button>
-
-      <!-- Chat Window -->
-      <div id="imsg-window" role="dialog" aria-label="Chat support">
-
-        <!-- Header -->
-        <div class="imsg-header">
-          <!-- Brand banner -->
-          <div class="imsg-brand-banner">
-            <div class="imsg-brand-banner-bg"></div>
-            <img id="imsg-brand-logo-img" src="" alt="Brand Logo" />
-            <span id="imsg-brand-logo-text">${storeName}</span>
-          </div>
-
-          <!-- Agent row -->
-          <div class="imsg-agent-row">
-            <div class="imsg-avatar-wrap">
-              <div class="imsg-avatar" id="imsg-avatar">
-                <img class="imsg-avatar-photo" id="imsg-avatar-photo" src="" alt="" />
-                <span class="imsg-avatar-initials" id="imsg-avatar-initials">${initials}</span>
-              </div>
-              <div class="imsg-online-dot"></div>
-            </div>
-            <div class="imsg-header-info">
-              <div class="imsg-header-name" id="imsg-agent-name">${storeName}</div>
-              <div class="imsg-header-status">Active now</div>
-            </div>
-            <div class="imsg-header-actions">
-              <button class="imsg-hbtn" id="imsg-minimize-btn" title="Minimize">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-                  <path d="M5 12h14"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Messages area -->
-        <div class="imsg-messages" id="imsg-msgs">
-          <div class="imsg-typing" id="imsg-typing-indicator">
-            <span></span><span></span><span></span>
-          </div>
-        </div>
-
-        <!-- Quick replies -->
-        <div class="imsg-qr-bar" id="imsg-qr-bar"></div>
-
-        <!-- Input bar -->
-        <div class="imsg-input-bar">
-          <div class="imsg-input-wrap">
-            <button class="imsg-img-btn" id="imsg-img-btn" title="Send image">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <rect x="3" y="3" width="18" height="18" rx="3"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <path d="M21 15l-5-5L5 21"/>
-              </svg>
-            </button>
-            <textarea
-              id="imsg-textarea"
-              class="imsg-textarea"
-              placeholder="Message"
-              rows="1"
-            ></textarea>
-          </div>
-          <button class="imsg-send-btn" id="imsg-send-btn" disabled>
-            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 19V5M5 12l7-7 7 7"/>
-            </svg>
-          </button>
-        </div>
-
-      </div>
-    `;
-
-    document.body.appendChild(container);
-
-    // Apply avatar from config if it's a URL
-    const avatarConfig = window.__cozyChatConfig?.avatar;
-    if (avatarConfig && (avatarConfig.startsWith('http') || avatarConfig.startsWith('/'))) {
-      const photoEl = container.querySelector('#imsg-avatar-photo');
-      photoEl.src = avatarConfig;
-      photoEl.onload = () => photoEl.classList.add('loaded');
-      // Also set on launcher
-      const launcherLogo = container.querySelector('#imsg-launcher-logo');
-      launcherLogo.src = avatarConfig;
-      launcherLogo.onload = () => {
-        launcherLogo.classList.add('loaded');
-        container.querySelector('#imsg-launcher-icon').style.opacity = '0';
-      };
-      container.querySelector('#imsg-avatar-initials').style.opacity = '0';
-    }
-
-    bindEvents();
+/* ── VISITOR ID ──────────────────────────────────────────────── */
+function getVisitorId() {
+  var id = localStorage.getItem('cozy_visitor_id');
+  if (!id) {
+    id = 'v_' + Math.random().toString(36).substr(2, 12) + Date.now().toString(36);
+    localStorage.setItem('cozy_visitor_id', id);
   }
+  imsgVisitorId = id;
+  return id;
+}
 
-  // ── Event Bindings ──
+/* ── INJECT HTML ─────────────────────────────────────────────── */
+function createWidget() {
+  var storeName = IMSG.brandName;
+  var initials = getInitials(storeName);
+  var div = document.createElement('div');
+  div.id = 'cozy-chat-widget';
 
-  function bindEvents() {
-    const launcher = document.getElementById('imsg-launcher');
-    const minimizeBtn = document.getElementById('imsg-minimize-btn');
-    const sendBtn = document.getElementById('imsg-send-btn');
-    const input = document.getElementById('imsg-textarea');
-    const greeting = document.getElementById('cozy-chat-greeting');
-    const greetingClose = greeting.querySelector('.imsg-greeting-close');
+  div.innerHTML =
+    '<!-- Greeting Tooltip -->' +
+    '<div id="cozy-chat-greeting">' +
+      '<button class="cc-greeting-close" aria-label="Close">&times;</button>' +
+      '<span id="cozy-chat-greeting-text"></span>' +
+    '</div>' +
 
-    launcher.addEventListener('click', toggleChat);
-    minimizeBtn.addEventListener('click', toggleChat);
-    sendBtn.addEventListener('click', sendMessage);
-    greeting.addEventListener('click', (e) => {
-      if (e.target !== greetingClose) openChat();
+    '<!-- Launcher -->' +
+    '<button id="imsg-launcher" aria-label="Open chat">' +
+      '<div id="imsg-launcher-inner">' +
+        '<img id="imsg-launcher-logo" src="" alt="" />' +
+        '<svg id="imsg-launcher-icon" width="30" height="30" viewBox="0 0 28 28" fill="none">' +
+          '<path d="M14 2C7.373 2 2 6.925 2 13c0 2.21.72 4.26 1.95 5.96L2.5 22.5l4.04-1.3A12.07 12.07 0 0014 24c6.627 0 12-4.925 12-11S20.627 2 14 2z" fill="white"/>' +
+        '</svg>' +
+        '<svg id="imsg-launcher-close" width="22" height="22" viewBox="0 0 24 24" fill="none">' +
+          '<path d="M18 6L6 18M6 6l12 12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>' +
+        '</svg>' +
+      '</div>' +
+      '<span id="imsg-badge">1</span>' +
+    '</button>' +
+
+    '<!-- Chat Window -->' +
+    '<div id="imsg-window" role="dialog" aria-label="Chat support">' +
+
+      '<!-- Upload Panel -->' +
+      '<div id="imsg-upload-panel">' +
+        '<div class="imsg-panel-title">Customize Widget</div>' +
+        '<div class="imsg-panel-subtitle">Upload your agent photo and brand logo.<br/>Images are saved in your browser.</div>' +
+        '<div class="imsg-upload-row">' +
+          '<div class="imsg-upload-label">Agent Profile Photo</div>' +
+          '<div class="imsg-dropzone" id="imsg-dz-avatar">' +
+            '<input type="file" id="imsg-avatar-file" accept="image/*" />' +
+            '<img class="imsg-dz-preview" id="imsg-dz-avatar-preview" src="" alt="Preview" />' +
+            '<div class="imsg-dropzone-icon" id="imsg-dz-avatar-icon">🧑‍💼</div>' +
+            '<div class="imsg-dropzone-text"><strong>Click to upload</strong> or drag & drop</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="imsg-upload-row">' +
+          '<div class="imsg-upload-label">Brand Logo (Header Banner)</div>' +
+          '<div class="imsg-dropzone" id="imsg-dz-logo">' +
+            '<input type="file" id="imsg-logo-file" accept="image/*" />' +
+            '<img class="imsg-dz-preview-banner" id="imsg-dz-logo-preview" src="" alt="Preview" />' +
+            '<div class="imsg-dropzone-icon" id="imsg-dz-logo-icon">🏷️</div>' +
+            '<div class="imsg-dropzone-text"><strong>Click to upload</strong> or drag & drop</div>' +
+          '</div>' +
+        '</div>' +
+        '<button class="imsg-panel-close" id="imsg-panel-close-btn">Done</button>' +
+      '</div>' +
+
+      '<!-- Header -->' +
+      '<div class="imsg-header">' +
+        '<div class="imsg-brand-banner">' +
+          '<div class="imsg-brand-banner-bg"></div>' +
+          '<img id="imsg-brand-logo-img" src="" alt="Brand Logo" />' +
+          '<span id="imsg-brand-logo-text">' + storeName + '</span>' +
+          '<button class="imsg-banner-upload-btn" id="imsg-customize-btn" title="Upload brand logo & agent photo">⚙ Customize</button>' +
+        '</div>' +
+        '<div class="imsg-agent-row">' +
+          '<div class="imsg-avatar-wrap">' +
+            '<div class="imsg-avatar" id="imsg-avatar">' +
+              '<img class="imsg-avatar-photo" id="imsg-avatar-photo" src="" alt="" />' +
+              '<span class="imsg-avatar-initials" id="imsg-avatar-initials">' + initials + '</span>' +
+              '<div class="imsg-avatar-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>' +
+            '</div>' +
+            '<div class="imsg-online-dot"></div>' +
+          '</div>' +
+          '<div class="imsg-header-info">' +
+            '<div class="imsg-header-name" id="imsg-agent-name">' + IMSG.agentName + '</div>' +
+            '<div class="imsg-header-status">Active now</div>' +
+          '</div>' +
+          '<div class="imsg-header-actions">' +
+            '<button class="imsg-hbtn" id="imsg-minimize-btn" title="Minimize">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg>' +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<!-- Messages -->' +
+      '<div class="imsg-messages" id="imsg-msgs"></div>' +
+
+      '<!-- Image preview strip -->' +
+      '<div class="imsg-img-preview-strip" id="imsg-img-strip">' +
+        '<img class="imsg-img-preview-thumb" id="imsg-img-thumb" src="" alt="" />' +
+        '<button class="imsg-img-preview-remove" id="imsg-img-remove">✕</button>' +
+      '</div>' +
+
+      '<!-- Quick replies -->' +
+      '<div class="imsg-qr-bar" id="imsg-qr-bar"></div>' +
+
+      '<!-- Input bar -->' +
+      '<div class="imsg-input-bar">' +
+        '<div class="imsg-input-wrap">' +
+          '<button class="imsg-img-btn" id="imsg-img-btn" title="Send image">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>' +
+          '</button>' +
+          '<input type="file" id="imsg-msg-img-input" accept="image/*" style="display:none" />' +
+          '<textarea id="imsg-textarea" class="imsg-textarea" placeholder="iMessage" rows="1"></textarea>' +
+        '</div>' +
+        '<button class="imsg-send-btn" id="imsg-send-btn" disabled>' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>' +
+        '</button>' +
+      '</div>' +
+
+    '</div>';
+
+  document.body.appendChild(div);
+}
+
+/* ── INIT ─────────────────────────────────────────────────────── */
+function init() {
+  getVisitorId();
+  createWidget();
+  applyBrandColor(IMSG.brandColor, IMSG.accentColor);
+  setQRs(IMSG.quickReplies);
+
+  // Restore saved images
+  var savedAvatar = localStorage.getItem('imsg_avatar');
+  var savedLogo = localStorage.getItem('imsg_logo');
+  if (savedAvatar) applyAvatar(savedAvatar);
+  if (savedLogo) applyLogo(savedLogo);
+
+  bindEvents();
+  restoreState();
+}
+
+/* ── BIND EVENTS ──────────────────────────────────────────────── */
+function bindEvents() {
+  // Launcher
+  document.getElementById('imsg-launcher').addEventListener('click', imsgToggle);
+  document.getElementById('imsg-minimize-btn').addEventListener('click', imsgToggle);
+
+  // Send
+  document.getElementById('imsg-send-btn').addEventListener('click', imsgSend);
+
+  // Textarea
+  var textarea = document.getElementById('imsg-textarea');
+  textarea.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); imsgSend(); }
+  });
+  textarea.addEventListener('input', function() {
+    imsgAutoResize(textarea);
+    imsgToggleSend();
+  });
+
+  // Image button
+  document.getElementById('imsg-img-btn').addEventListener('click', function() {
+    document.getElementById('imsg-msg-img-input').click();
+  });
+  document.getElementById('imsg-msg-img-input').addEventListener('change', imsgMsgImgSelected);
+  document.getElementById('imsg-img-remove').addEventListener('click', imsgClearImgPreview);
+
+  // Customize panel
+  document.getElementById('imsg-customize-btn').addEventListener('click', imsgOpenPanel);
+  document.getElementById('imsg-avatar').addEventListener('click', imsgOpenPanel);
+  document.getElementById('imsg-panel-close-btn').addEventListener('click', imsgClosePanel);
+
+  // File uploads
+  document.getElementById('imsg-avatar-file').addEventListener('change', function(e) { imsgFileChange(e, 'avatar'); });
+  document.getElementById('imsg-logo-file').addEventListener('change', function(e) { imsgFileChange(e, 'logo'); });
+
+  // Drag and drop
+  ['imsg-dz-avatar', 'imsg-dz-logo'].forEach(function(id) {
+    var el = document.getElementById(id);
+    el.addEventListener('dragover', function(e) { e.preventDefault(); el.classList.add('drag-over'); });
+    el.addEventListener('dragleave', function() { el.classList.remove('drag-over'); });
+    el.addEventListener('drop', function(e) {
+      e.preventDefault(); el.classList.remove('drag-over');
+      var type = id.includes('avatar') ? 'avatar' : 'logo';
+      var file = e.dataTransfer.files[0];
+      if (!file || !file.type.startsWith('image/')) return;
+      var reader = new FileReader();
+      reader.onload = function(ev) { processUpload(ev.target.result, type); };
+      reader.readAsDataURL(file);
     });
-    greetingClose.addEventListener('click', (e) => {
-      e.stopPropagation();
+  });
+
+  // Greeting tooltip
+  var greeting = document.getElementById('cozy-chat-greeting');
+  greeting.addEventListener('click', function(e) {
+    if (!e.target.classList.contains('cc-greeting-close')) {
       hideGreeting();
-    });
-
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
-
-    // Auto-resize textarea + toggle send button
-    input.addEventListener('input', () => {
-      input.style.height = 'auto';
-      input.style.height = Math.min(input.scrollHeight, 100) + 'px';
-      document.getElementById('imsg-send-btn').disabled = !input.value.trim();
-    });
-
-    // Listen for behavioral triggers
-    window.addEventListener('cozy-chat-trigger', (e) => {
-      if (!state.isOpen && !state.greetingShown) {
-        showGreeting(e.detail);
-      }
-    });
-  }
-
-  // ── Chat Open / Close ──
-
-  function toggleChat() {
-    if (state.isOpen) {
-      closeChat();
-    } else {
-      openChat();
+      if (!imsgIsOpen) imsgToggle();
     }
-  }
-
-  function openChat() {
-    state.isOpen = true;
+  });
+  greeting.querySelector('.cc-greeting-close').addEventListener('click', function(e) {
+    e.stopPropagation();
     hideGreeting();
+  });
 
-    const win = document.getElementById('imsg-window');
-    const badge = document.getElementById('imsg-badge');
-    const icon = document.getElementById('imsg-launcher-icon');
-    const close = document.getElementById('imsg-launcher-close');
+  // Behavioral triggers
+  window.addEventListener('cozy-chat-trigger', function(e) {
+    if (!imsgIsOpen && !imsgGreetingShown) {
+      showGreeting(e.detail);
+    }
+  });
+}
 
-    win.classList.add('open');
+/* ── BRAND COLOR ──────────────────────────────────────────────── */
+function applyBrandColor(color, accent) {
+  var launcher = document.getElementById('imsg-launcher');
+  launcher.style.background = 'linear-gradient(145deg,' + color + ',' + accent + ')';
+  launcher.style.boxShadow = '0 4px 28px ' + color + '88, 0 2px 8px rgba(0,0,0,0.3)';
+  var sendBtn = document.getElementById('imsg-send-btn');
+  sendBtn.style.background = color;
+  sendBtn.style.boxShadow = '0 2px 12px ' + color + '66';
+  var avatar = document.getElementById('imsg-avatar');
+  avatar.style.background = 'linear-gradient(135deg,' + color + ',' + accent + ')';
+}
+
+function getInitials(name) {
+  return name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+}
+
+/* ── TOGGLE OPEN/CLOSE ───────────────────────────────────────── */
+function imsgToggle() {
+  var win = document.getElementById('imsg-window');
+  var badge = document.getElementById('imsg-badge');
+  var icon = document.getElementById('imsg-launcher-icon');
+  var close = document.getElementById('imsg-launcher-close');
+
+  imsgIsOpen = !imsgIsOpen;
+  win.classList.toggle('open', imsgIsOpen);
+  icon.classList.toggle('hide', imsgIsOpen);
+  close.classList.toggle('show', imsgIsOpen);
+
+  if (imsgIsOpen) {
     badge.style.display = 'none';
-    icon.classList.add('hide');
-    close.classList.add('show');
-
+    hideGreeting();
+    if (imsgMsgCount === 0) setTimeout(imsgWelcome, 320);
+    setTimeout(function() { document.getElementById('imsg-textarea').focus(); }, 420);
     window.dispatchEvent(new CustomEvent('cozy-chat-opened'));
-    saveState();
-
-    // Load session or start new
-    loadSession();
-
-    // Focus input
-    setTimeout(() => {
-      document.getElementById('imsg-textarea').focus();
-    }, 420);
-  }
-
-  function closeChat() {
-    state.isOpen = false;
-
-    const win = document.getElementById('imsg-window');
-    const icon = document.getElementById('imsg-launcher-icon');
-    const close = document.getElementById('imsg-launcher-close');
-
-    win.classList.remove('open');
-    icon.classList.remove('hide');
-    close.classList.remove('show');
-
-    saveState();
-
+  } else {
     window.dispatchEvent(new CustomEvent('cozy-chat-closed', {
-      detail: { hadInteraction: state.hadInteraction }
+      detail: { hadInteraction: imsgHadInteraction }
     }));
   }
+  saveState();
+}
 
-  // ── Greeting ──
+/* ── WELCOME FLOW ─────────────────────────────────────────────── */
+function imsgWelcome() {
+  clearMsgs();
+  addDateSep('Today');
 
-  async function showGreeting(triggerDetail) {
-    state.greetingShown = true;
-    const triggerType = triggerDetail.type || 'default';
-    const sourcePage = triggerDetail.sourcePage || window.location.pathname;
-
-    try {
-      const res = await fetch(`${HOST}/api/chat/greeting`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sourcePage,
-          triggerType,
-          isReturnVisitor: triggerDetail.isReturnVisitor,
-          visitCount: triggerDetail.visitCount,
-          productsViewed: triggerDetail.productsViewed,
-          sessionPages: triggerDetail.sessionPages,
-          addToCartCount: triggerDetail.addToCartCount,
-          cartDetected: triggerDetail.cartDetected,
-        }),
-      });
-      const data = await res.json();
-
-      const greetingEl = document.getElementById('cozy-chat-greeting');
-      const textEl = document.getElementById('cozy-chat-greeting-text');
-      textEl.textContent = data.message;
-      greetingEl.classList.add('imsg-show');
-
-      // Show badge
-      document.getElementById('imsg-badge').style.display = 'flex';
-
-      // Auto-hide after 15s
-      setTimeout(() => {
-        if (!state.isOpen) hideGreeting();
-      }, 15000);
-    } catch (e) {
-      console.error('Greeting error:', e);
-    }
+  // Check for existing conversation
+  var savedId = sessionStorage.getItem('cozy_convo_id');
+  if (savedId) {
+    imsgConversationId = savedId;
+    loadHistory(savedId);
+  } else {
+    showTyping(function() {
+      addMsg(IMSG.greeting, 'recv');
+    }, 1200);
   }
+}
 
-  function hideGreeting() {
-    const greetingEl = document.getElementById('cozy-chat-greeting');
-    greetingEl.classList.remove('imsg-show');
-  }
-
-  // ── Session Management ──
-
-  function clearMessages() {
-    const messagesEl = document.getElementById('imsg-msgs');
-    const typing = document.getElementById('imsg-typing-indicator');
-    messagesEl.innerHTML = '';
-    messagesEl.appendChild(typing);
-  }
-
-  function addDateSep(text) {
-    const messagesEl = document.getElementById('imsg-msgs');
-    const typing = document.getElementById('imsg-typing-indicator');
-    const d = document.createElement('div');
-    d.className = 'imsg-date-sep';
-    d.textContent = text;
-    messagesEl.insertBefore(d, typing);
-  }
-
-  function loadSession() {
-    state.visitorId = window.__cozyChatBehavioral?.getVisitorId() || getVisitorId();
-
-    // Always clear first to prevent duplicates
-    clearMessages();
-
-    const savedConvoId = sessionStorage.getItem('cozy_convo_id');
-    addDateSep('Today');
-    if (savedConvoId) {
-      state.conversationId = savedConvoId;
-      loadHistory(savedConvoId);
-    } else {
-      addAssistantMessage(`Hey! Welcome to ${window.__cozyChatConfig?.storeName || 'Limited Armor'} ${window.__cozyChatConfig?.avatar || '🛡️'}\n\nWhat are you shopping for today? A new phone case, Apple Watch band, wallet, or something else?`);
-    }
-  }
-
-  async function loadHistory(conversationId) {
-    try {
-      const res = await fetch(`${HOST}/api/chat/history/${conversationId}`);
-      const data = await res.json();
-
-      // Clear again in case of race condition
-      clearMessages();
-      addDateSep('Today');
-
+/* ── LOAD HISTORY FROM API ────────────────────────────────────── */
+function loadHistory(conversationId) {
+  fetch(HOST + '/api/chat/history/' + conversationId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
       if (data.messages && data.messages.length > 0) {
-        for (const msg of data.messages) {
+        data.messages.forEach(function(msg) {
           if (msg.role === 'user') {
-            addUserMessageBubble(msg.content);
+            addMsg(msg.content, 'sent');
           } else {
-            addAssistantMessage(msg.content);
+            addMsg(msg.content, 'recv');
             if (msg.product_cards) {
               try {
-                const cards = JSON.parse(msg.product_cards);
-                cards.forEach(card => renderProductCard(card));
-              } catch (e) {}
+                var cards = JSON.parse(msg.product_cards);
+                cards.forEach(function(c) { addProductCard(c); });
+              } catch(e) {}
             }
           }
-        }
+        });
       } else {
-        addAssistantMessage(`Hey! Welcome back to ${window.__cozyChatConfig?.storeName || 'Limited Armor'} ${window.__cozyChatConfig?.avatar || '🛡️'}\n\nHow can I help you today?`);
+        addMsg(IMSG.greeting, 'recv');
       }
-    } catch (e) {
-      addAssistantMessage(`Hey! Welcome to ${window.__cozyChatConfig?.storeName || 'Limited Armor'} ${window.__cozyChatConfig?.avatar || '🛡️'}\n\nI'm here to help — ask me anything!`);
-    }
-  }
+    })
+    .catch(function() {
+      addMsg(IMSG.greeting, 'recv');
+    });
+}
 
-  function getVisitorId() {
-    let id = localStorage.getItem('cozy_visitor_id');
-    if (!id) {
-      id = 'v_' + Math.random().toString(36).substr(2, 12) + Date.now().toString(36);
-      localStorage.setItem('cozy_visitor_id', id);
-    }
-    return id;
-  }
+/* ── MESSAGES ─────────────────────────────────────────────────── */
+function clearMsgs() {
+  document.getElementById('imsg-msgs').innerHTML = '';
+  imsgMsgCount = 0;
+}
 
-  // ── Send Message ──
+function addDateSep(t) {
+  var el = document.getElementById('imsg-msgs');
+  var d = document.createElement('div');
+  d.className = 'imsg-date-sep';
+  d.textContent = t;
+  el.appendChild(d);
+}
 
-  async function sendMessage() {
-    const input = document.getElementById('imsg-textarea');
-    const message = input.value.trim();
-    if (!message) return;
+function addMsg(text, type) {
+  var el = document.getElementById('imsg-msgs');
+  var row = document.createElement('div');
+  row.className = 'imsg-row ' + type;
+  imsgMsgCount++;
 
-    state.hadInteraction = true;
-    saveState();
-    input.value = '';
-    input.style.height = 'auto';
-    document.getElementById('imsg-send-btn').disabled = true;
+  var bub = document.createElement('div');
+  bub.className = 'imsg-bubble';
+  bub.textContent = text;
+  row.appendChild(bub);
 
-    // Add user message to UI
-    addUserMessageBubble(message);
+  var ts = document.createElement('div');
+  ts.className = 'imsg-ts';
+  ts.textContent = imsgTime();
+  row.appendChild(ts);
 
-    // Show typing
-    showTyping();
-
-    try {
-      const res = await fetch(`${HOST}/api/chat/message`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversationId: state.conversationId,
-          visitorId: state.visitorId,
-          message,
-          sourcePage: window.location.pathname,
-        }),
-      });
-
-      const data = await res.json();
-
-      hideTyping();
-
-      // Save conversation ID
-      state.conversationId = data.conversationId;
-      sessionStorage.setItem('cozy_convo_id', data.conversationId);
-
-      // Add assistant message
-      if (data.message) {
-        addAssistantMessage(data.message);
-      }
-
-      // Render product cards
-      if (data.productCards && data.productCards.length > 0) {
-        data.productCards.forEach(card => renderProductCard(card));
-      }
-
-      // Show email capture
-      if (data.showEmailCapture) {
-        renderEmailCapture();
-      }
-
-      // Render links
-      if (data.links && data.links.length > 0) {
-        renderLinks(data.links);
-      }
-
-      // Render order data
-      if (data.orderData) {
-        renderOrderCard(data.orderData);
-      }
-    } catch (err) {
-      hideTyping();
-      addAssistantMessage("Sorry, I'm having a moment! Please try again or email us at " + (window.__cozyChatConfig?.supportEmail || 'support@limitedarmor.com') + " 💙");
-    }
-  }
-
-  // ── Render Messages ──
-
-  function currentTimeStr() {
-    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-
-  function addUserMessageBubble(text) {
-    const messagesEl = document.getElementById('imsg-msgs');
-    const typing = document.getElementById('imsg-typing-indicator');
-
-    const row = document.createElement('div');
-    row.className = 'imsg-row sent';
-
-    const bub = document.createElement('div');
-    bub.className = 'imsg-bubble';
-    bub.textContent = text;
-    row.appendChild(bub);
-
-    const ts = document.createElement('div');
-    ts.className = 'imsg-ts';
-    ts.textContent = currentTimeStr();
-    row.appendChild(ts);
-
-    const rec = document.createElement('div');
+  if (type === 'sent') {
+    var rec = document.createElement('div');
     rec.className = 'imsg-receipt';
     rec.textContent = 'Delivered';
     row.appendChild(rec);
-
-    // Change to "Read" after a delay
-    setTimeout(() => { rec.textContent = 'Read'; }, 2200);
-
-    messagesEl.insertBefore(row, typing);
-    updateBubbleGrouping(messagesEl);
-    scrollToBottom();
+    setTimeout(function() { rec.textContent = 'Read'; }, 2200);
   }
 
-  function addAssistantMessage(text) {
-    const messagesEl = document.getElementById('imsg-msgs');
-    const typing = document.getElementById('imsg-typing-indicator');
+  el.appendChild(row);
+  scrollBottom();
+}
 
-    const row = document.createElement('div');
-    row.className = 'imsg-row recv';
+function addImgMsg(src, type) {
+  var el = document.getElementById('imsg-msgs');
+  var row = document.createElement('div');
+  row.className = 'imsg-row ' + type;
+  imsgMsgCount++;
 
-    const bub = document.createElement('div');
-    bub.className = 'imsg-bubble';
-    bub.innerHTML = formatMessage(text);
-    row.appendChild(bub);
+  var wrap = document.createElement('div');
+  wrap.className = 'imsg-bubble-img';
+  var img = document.createElement('img');
+  img.src = src;
+  img.style.maxWidth = '200px';
+  img.style.borderRadius = '14px';
+  wrap.appendChild(img);
+  row.appendChild(wrap);
 
-    const ts = document.createElement('div');
-    ts.className = 'imsg-ts';
-    ts.textContent = currentTimeStr();
-    row.appendChild(ts);
+  var ts = document.createElement('div');
+  ts.className = 'imsg-ts';
+  ts.textContent = imsgTime();
+  row.appendChild(ts);
 
-    messagesEl.insertBefore(row, typing);
-    updateBubbleGrouping(messagesEl);
-    scrollToBottom();
+  if (type === 'sent') {
+    var rec = document.createElement('div');
+    rec.className = 'imsg-receipt';
+    rec.textContent = 'Delivered';
+    row.appendChild(rec);
+    setTimeout(function() { rec.textContent = 'Read'; }, 2200);
   }
 
-  // Group bubbles — apply top/mid/bottom classes for consecutive same-sender messages
-  function updateBubbleGrouping(container) {
-    const rows = container.querySelectorAll('.imsg-row');
-    rows.forEach((row) => {
-      const bubble = row.querySelector('.imsg-bubble');
-      if (!bubble) return;
-      bubble.classList.remove('top', 'mid', 'bottom');
+  el.appendChild(row);
+  scrollBottom();
+}
+
+function addProductCard(p) {
+  var el = document.getElementById('imsg-msgs');
+  var row = document.createElement('div');
+  row.className = 'imsg-row recv';
+
+  var card = document.createElement('a');
+  card.className = 'imsg-product-card';
+  card.href = p.url || '#';
+  card.target = '_blank';
+
+  var thumbHtml = p.image
+    ? '<div class="imsg-product-thumb"><img src="' + p.image + '" /></div>'
+    : '<div class="imsg-product-thumb">' + (p.emoji || '📱') + '</div>';
+
+  var priceHtml = p.compareAtPrice && parseFloat(p.compareAtPrice) > parseFloat(p.price)
+    ? '<span style="color:#34c759;font-weight:700;">$' + parseFloat(p.price).toFixed(2) + '</span> <span style="text-decoration:line-through;color:rgba(255,255,255,0.3);font-size:12px;">$' + parseFloat(p.compareAtPrice).toFixed(2) + '</span>'
+    : '<span style="color:#34c759;font-weight:700;">$' + parseFloat(p.price || 0).toFixed(2) + '</span>';
+
+  card.innerHTML =
+    thumbHtml +
+    '<div class="imsg-product-body">' +
+      '<div class="imsg-product-name">' + (p.title || p.name) + '</div>' +
+      '<div class="imsg-product-price">' + priceHtml + '</div>' +
+      '<span class="imsg-product-cta" style="background:' + IMSG.brandColor + '">View Product →</span>' +
+    '</div>';
+  row.appendChild(card);
+  el.appendChild(row);
+  scrollBottom();
+}
+
+function addLinkButtons(links) {
+  var el = document.getElementById('imsg-msgs');
+  var row = document.createElement('div');
+  row.className = 'imsg-row recv';
+  row.style.display = 'flex';
+  row.style.flexWrap = 'wrap';
+  row.style.gap = '6px';
+  links.forEach(function(link) {
+    var chip = document.createElement('button');
+    chip.className = 'imsg-qr-chip';
+    chip.textContent = link.text;
+    chip.addEventListener('click', function() {
+      window.open(link.url.startsWith('/') ? STORE_URL + link.url : link.url, '_blank');
     });
+    row.appendChild(chip);
+  });
+  el.appendChild(row);
+  scrollBottom();
+}
 
-    const rowArr = Array.from(rows);
-    for (let i = 0; i < rowArr.length; i++) {
-      const row = rowArr[i];
-      const bubble = row.querySelector('.imsg-bubble');
-      if (!bubble) continue;
+function showTyping(cb, delay) {
+  var el = document.getElementById('imsg-msgs');
+  var row = document.createElement('div');
+  row.className = 'imsg-row recv';
+  row.id = 'imsg-typing-row';
+  var ind = document.createElement('div');
+  ind.className = 'imsg-typing';
+  ind.innerHTML = '<span></span><span></span><span></span>';
+  row.appendChild(ind);
+  el.appendChild(row);
+  scrollBottom();
+  if (cb) {
+    setTimeout(function() {
+      var tr = document.getElementById('imsg-typing-row');
+      if (tr) tr.remove();
+      cb();
+    }, delay || 1400);
+  }
+}
 
-      const isSent = row.classList.contains('sent');
-      const prev = rowArr[i - 1];
-      const next = rowArr[i + 1];
-      const prevSame = prev && prev.classList.contains(isSent ? 'sent' : 'recv') && prev.querySelector('.imsg-bubble');
-      const nextSame = next && next.classList.contains(isSent ? 'sent' : 'recv') && next.querySelector('.imsg-bubble');
+function hideTyping() {
+  var tr = document.getElementById('imsg-typing-row');
+  if (tr) tr.remove();
+}
 
-      if (prevSame && nextSame) {
-        bubble.classList.add('mid');
-      } else if (!prevSame && nextSame) {
-        bubble.classList.add('top');
-      } else if (prevSame && !nextSame) {
-        bubble.classList.add('bottom');
+/* ── SEND — REAL API ──────────────────────────────────────────── */
+function imsgSend() {
+  var inp = document.getElementById('imsg-textarea');
+  var text = inp.value.trim();
+  var hasImg = !!imsgPendingImg;
+
+  if ((!text && !hasImg) || imsgTypingLock) return;
+
+  imsgHadInteraction = true;
+
+  if (hasImg) {
+    addImgMsg(imsgPendingImg, 'sent');
+    imsgClearImgPreview();
+  }
+  if (text) {
+    addMsg(text, 'sent');
+    inp.value = '';
+    imsgAutoResize(inp);
+    imsgToggleSend();
+
+    // Show typing
+    imsgTypingLock = true;
+    showTyping(null); // persistent typing — no auto-remove
+
+    // Call API
+    fetch(HOST + '/api/chat/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversationId: imsgConversationId,
+        visitorId: imsgVisitorId,
+        message: text,
+        sourcePage: window.location.pathname
+      })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      hideTyping();
+      imsgTypingLock = false;
+
+      imsgConversationId = data.conversationId;
+      sessionStorage.setItem('cozy_convo_id', data.conversationId);
+
+      if (data.message) addMsg(data.message, 'recv');
+      if (data.productCards && data.productCards.length > 0) {
+        data.productCards.forEach(function(c) { addProductCard(c); });
       }
-      // If neither prevSame nor nextSame => standalone, no class needed (default full radius)
-    }
-  }
-
-  function formatMessage(text) {
-    // Convert line breaks
-    let html = text.replace(/\n/g, '<br>');
-    // Bold text **text**
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    return html;
-  }
-
-  // ── Product Card ──
-
-  function renderProductCard(product) {
-    const messagesEl = document.getElementById('imsg-msgs');
-    const typing = document.getElementById('imsg-typing-indicator');
-
-    const row = document.createElement('div');
-    row.className = 'imsg-row recv';
-
-    const card = document.createElement('a');
-    card.className = 'imsg-product-card';
-    card.href = product.url || '#';
-    card.target = '_blank';
-
-    const priceHtml = product.compareAtPrice && parseFloat(product.compareAtPrice) > parseFloat(product.price)
-      ? `<span style="font-weight:700;font-size:14px;color:#34c759;">$${parseFloat(product.price).toFixed(2)}</span>
-         <span style="font-size:11px;color:rgba(255,255,255,0.35);text-decoration:line-through;">$${parseFloat(product.compareAtPrice).toFixed(2)}</span>
-         ${product.discount ? `<span style="background:rgba(255,243,205,0.15);color:#fbbf24;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;">${product.discount}</span>` : ''}`
-      : `<span style="font-weight:700;font-size:14px;color:#34c759;">$${parseFloat(product.price).toFixed(2)}</span>`;
-
-    card.innerHTML = `
-      <div class="imsg-product-thumb">
-        ${product.image ? `<img src="${product.image}" alt="${product.title}" loading="lazy">` : '📦'}
-      </div>
-      <div class="imsg-product-body">
-        <div class="imsg-product-name">${product.title}</div>
-        <div class="imsg-product-price">${priceHtml}</div>
-        <span class="imsg-product-cta">View Product →</span>
-      </div>
-    `;
-
-    row.appendChild(card);
-    messagesEl.insertBefore(row, typing);
-    scrollToBottom();
-  }
-
-  // ── Email Capture ──
-
-  function renderEmailCapture() {
-    const messagesEl = document.getElementById('imsg-msgs');
-    const typing = document.getElementById('imsg-typing-indicator');
-
-    const capture = document.createElement('div');
-    capture.className = 'imsg-email-capture';
-    capture.innerHTML = `
-      <div class="imsg-email-capture-title">Get 10% Off Your First Order! 💌</div>
-      <div class="imsg-email-capture-subtitle">Drop your email and we'll send your exclusive discount code.</div>
-      <div class="imsg-email-capture-form">
-        <input type="email" class="imsg-email-capture-input" placeholder="your@email.com">
-        <button class="imsg-email-capture-submit">Get Code</button>
-      </div>
-    `;
-
-    const submitBtn = capture.querySelector('.imsg-email-capture-submit');
-    const emailInput = capture.querySelector('.imsg-email-capture-input');
-
-    submitBtn.addEventListener('click', async () => {
-      const email = emailInput.value.trim();
-      if (!email || !email.includes('@')) return;
-
-      try {
-        const res = await fetch(`${HOST}/api/chat/capture-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversationId: state.conversationId,
-            email,
-            sourcePage: window.location.pathname,
-          }),
-        });
-        const data = await res.json();
-
-        capture.querySelector('.imsg-email-capture-form').innerHTML = `
-          <div class="imsg-email-capture-success">
-            🎉 Your code: <strong>${data.discountCode}</strong><br>
-            <small>Applied at checkout automatically!</small>
-          </div>
-        `;
-      } catch (e) {
-        capture.querySelector('.imsg-email-capture-form').innerHTML = `
-          <div class="imsg-email-capture-success" style="color: rgba(255,255,255,0.4);">
-            Something went wrong. Email ${window.__cozyChatConfig?.supportEmail || 'support@limitedarmor.com'} for your discount!
-          </div>
-        `;
+      if (data.links && data.links.length > 0) {
+        addLinkButtons(data.links);
       }
+      if (data.showEmailCapture) renderEmailCapture();
+    })
+    .catch(function(err) {
+      hideTyping();
+      imsgTypingLock = false;
+      console.error('Chat error:', err);
+      addMsg("Sorry, I'm having a moment! Please try again or email us at " + ((window.__cozyChatConfig && window.__cozyChatConfig.supportEmail) || 'support@limitedarmor.com') + " 💙", 'recv');
     });
+  } else if (hasImg) {
+    showTyping(function() {
+      addMsg("Got it! That's helpful — let me look into that for you. 🔍", 'recv');
+    }, 1200);
+  }
 
-    emailInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') submitBtn.click();
+  saveState();
+}
+
+/* ── EMAIL CAPTURE ────────────────────────────────────────────── */
+function renderEmailCapture() {
+  var el = document.getElementById('imsg-msgs');
+  var row = document.createElement('div');
+  row.className = 'imsg-row recv';
+  var card = document.createElement('div');
+  card.style.cssText = 'background:#1c1c1e;border-radius:18px;padding:14px;max-width:230px;border:0.5px solid rgba(255,255,255,0.09);';
+  card.innerHTML =
+    '<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:3px;">Get 10% Off 💌</div>' +
+    '<div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:10px;">Drop your email for an exclusive discount code.</div>' +
+    '<div style="display:flex;gap:6px;">' +
+      '<input type="email" placeholder="your@email.com" style="flex:1;padding:7px 10px;background:#2c2c2e;border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;font-size:12px;outline:none;font-family:inherit;" />' +
+      '<button style="padding:7px 12px;background:#007aff;color:#fff;border:none;border-radius:10px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap;">Get Code</button>' +
+    '</div>';
+  row.appendChild(card);
+  el.appendChild(row);
+
+  var submitBtn = card.querySelector('button');
+  var emailInput = card.querySelector('input');
+  submitBtn.addEventListener('click', function() {
+    var email = emailInput.value.trim();
+    if (!email || !email.includes('@')) return;
+    fetch(HOST + '/api/chat/capture-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId: imsgConversationId, email: email, sourcePage: window.location.pathname })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      card.querySelector('div:last-child').innerHTML = '<div style="text-align:center;color:#34c759;font-weight:600;font-size:13px;">🎉 Your code: <strong>' + data.discountCode + '</strong></div>';
+    })
+    .catch(function() {
+      card.querySelector('div:last-child').innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.5);font-size:12px;">Something went wrong. Email us!</div>';
     });
+  });
+  emailInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') submitBtn.click(); });
+  scrollBottom();
+}
 
-    messagesEl.insertBefore(capture, typing);
-    scrollToBottom();
-  }
+/* ── QUICK REPLIES ────────────────────────────────────────────── */
+function setQRs(replies) {
+  var el = document.getElementById('imsg-qr-bar');
+  el.innerHTML = '';
+  replies.forEach(function(r) {
+    var btn = document.createElement('button');
+    btn.className = 'imsg-qr-chip';
+    btn.textContent = r;
+    btn.addEventListener('click', function() { imsgQR(btn); });
+    el.appendChild(btn);
+  });
+}
 
-  // ── Order Card ──
+function imsgQR(el) {
+  var text = el.textContent;
+  // Treat as a real message through the API
+  document.getElementById('imsg-textarea').value = text;
+  imsgSend();
+}
 
-  function renderOrderCard(orderData) {
-    const messagesEl = document.getElementById('imsg-msgs');
-    const typing = document.getElementById('imsg-typing-indicator');
+/* ── IMAGE HANDLING ───────────────────────────────────────────── */
+function imsgMsgImgSelected(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    imsgPendingImg = ev.target.result;
+    document.getElementById('imsg-img-thumb').src = imsgPendingImg;
+    document.getElementById('imsg-img-strip').classList.add('visible');
+    document.getElementById('imsg-send-btn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
 
-    // Handle single order or array
-    const orders = Array.isArray(orderData) ? orderData : [orderData];
+function imsgClearImgPreview() {
+  imsgPendingImg = null;
+  document.getElementById('imsg-img-strip').classList.remove('visible');
+  document.getElementById('imsg-img-thumb').src = '';
+  imsgToggleSend();
+}
 
-    for (const order of orders) {
-      const card = document.createElement('div');
-      card.className = 'imsg-order-card';
+/* ── UPLOAD PANEL ─────────────────────────────────────────────── */
+function imsgOpenPanel() { document.getElementById('imsg-upload-panel').classList.add('open'); }
+function imsgClosePanel() { document.getElementById('imsg-upload-panel').classList.remove('open'); }
 
-      const statusClass = order.fulfillment === 'fulfilled' ? 'imsg-fulfilled'
-        : order.fulfillment === 'cancelled' ? 'imsg-cancelled'
-        : 'imsg-unfulfilled';
+function imsgFileChange(e, type) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) { processUpload(ev.target.result, type); };
+  reader.readAsDataURL(file);
+}
 
-      const statusLabel = order.fulfillment === 'fulfilled' ? 'Shipped'
-        : order.fulfillment === 'unfulfilled' ? 'Processing'
-        : order.fulfillment;
-
-      let itemsHtml = '';
-      if (order.items) {
-        itemsHtml = order.items.map(i =>
-          `<div class="imsg-order-card-row"><span>${i.title} x${i.quantity}</span><strong>$${i.price}</strong></div>`
-        ).join('');
-      }
-
-      card.innerHTML = `
-        <div class="imsg-order-card-header">Order ${order.number}</div>
-        <div class="imsg-order-card-row">
-          <span>Status</span>
-          <span class="imsg-order-card-status ${statusClass}">${statusLabel}</span>
-        </div>
-        <div class="imsg-order-card-row">
-          <span>Total</span>
-          <strong>$${order.total}</strong>
-        </div>
-        <div class="imsg-order-card-row">
-          <span>Placed</span>
-          <span>${new Date(order.createdAt).toLocaleDateString()}</span>
-        </div>
-        ${itemsHtml}
-        ${order.trackingUrl ? `<a href="${order.trackingUrl}" target="_blank">Track Shipment →</a>` : ''}
-      `;
-
-      messagesEl.insertBefore(card, typing);
-    }
-    scrollToBottom();
-  }
-
-  // ── Links ──
-
-  function renderLinks(links) {
-    const messagesEl = document.getElementById('imsg-msgs');
-    const typing = document.getElementById('imsg-typing-indicator');
-
-    const linksContainer = document.createElement('div');
-    linksContainer.style.cssText = 'align-self: flex-start; display: flex; flex-wrap: wrap; gap: 7px; padding: 4px 0;';
-
-    for (const link of links) {
-      const a = document.createElement('a');
-      a.href = link.url.startsWith('/') ? STORE_URL + link.url : link.url;
-      a.target = '_blank';
-      a.className = 'imsg-qr-chip';
-      a.textContent = link.text;
-      linksContainer.appendChild(a);
-    }
-
-    messagesEl.insertBefore(linksContainer, typing);
-    scrollToBottom();
-  }
-
-  // ── Typing Indicator ──
-
-  function showTyping() {
-    state.isTyping = true;
-    document.getElementById('imsg-typing-indicator').classList.add('imsg-show');
-    scrollToBottom();
-  }
-
-  function hideTyping() {
-    state.isTyping = false;
-    document.getElementById('imsg-typing-indicator').classList.remove('imsg-show');
-  }
-
-  // ── Scroll ──
-
-  function scrollToBottom() {
-    const messagesEl = document.getElementById('imsg-msgs');
-    requestAnimationFrame(() => {
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-    });
-  }
-
-  // ── Persist State ──
-
-  function saveState() {
-    sessionStorage.setItem('cozy_chat_open', state.isOpen ? '1' : '0');
-    sessionStorage.setItem('cozy_chat_interacted', state.hadInteraction ? '1' : '0');
-    if (state.greetingShown) {
-      sessionStorage.setItem('cozy_greeting_shown', '1');
-    }
-  }
-
-  function restoreState() {
-    state.hadInteraction = sessionStorage.getItem('cozy_chat_interacted') === '1';
-    state.greetingShown = sessionStorage.getItem('cozy_greeting_shown') === '1';
-    const wasOpen = sessionStorage.getItem('cozy_chat_open') === '1';
-
-    if (wasOpen || state.hadInteraction) {
-      // Re-open chat silently — restore the panel without animation delay
-      openChat();
-    }
-  }
-
-  // ── Initialize ──
-
-  function init() {
-    createWidget();
-    restoreState();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+function processUpload(src, type) {
+  if (type === 'avatar') {
+    applyAvatar(src);
+    localStorage.setItem('imsg_avatar', src);
+    var prev = document.getElementById('imsg-dz-avatar-preview');
+    prev.src = src; prev.classList.add('visible');
+    document.getElementById('imsg-dz-avatar-icon').style.display = 'none';
   } else {
-    init();
+    applyLogo(src);
+    localStorage.setItem('imsg_logo', src);
+    var prev2 = document.getElementById('imsg-dz-logo-preview');
+    prev2.src = src; prev2.classList.add('visible');
+    document.getElementById('imsg-dz-logo-icon').style.display = 'none';
   }
+}
+
+function applyAvatar(src) {
+  var photo = document.getElementById('imsg-avatar-photo');
+  photo.src = src; photo.classList.add('loaded');
+  document.getElementById('imsg-avatar-initials').style.opacity = '0';
+  var launcherLogo = document.getElementById('imsg-launcher-logo');
+  launcherLogo.src = src; launcherLogo.classList.add('loaded');
+  document.getElementById('imsg-launcher-icon').style.opacity = '0';
+}
+
+function applyLogo(src) {
+  var logoImg = document.getElementById('imsg-brand-logo-img');
+  var logoText = document.getElementById('imsg-brand-logo-text');
+  logoImg.src = src; logoImg.classList.add('loaded');
+  logoText.style.opacity = '0';
+}
+
+/* ── GREETING TOOLTIP ─────────────────────────────────────────── */
+function showGreeting(triggerDetail) {
+  imsgGreetingShown = true;
+  sessionStorage.setItem('cozy_greeting_shown', '1');
+
+  var triggerType = (triggerDetail && triggerDetail.type) || 'default';
+  var sourcePage = (triggerDetail && triggerDetail.sourcePage) || window.location.pathname;
+
+  fetch(HOST + '/api/chat/greeting', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sourcePage: sourcePage,
+      triggerType: triggerType,
+      isReturnVisitor: triggerDetail && triggerDetail.isReturnVisitor,
+      visitCount: triggerDetail && triggerDetail.visitCount,
+      productsViewed: triggerDetail && triggerDetail.productsViewed,
+      sessionPages: triggerDetail && triggerDetail.sessionPages,
+      addToCartCount: triggerDetail && triggerDetail.addToCartCount
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var greetingEl = document.getElementById('cozy-chat-greeting');
+    document.getElementById('cozy-chat-greeting-text').textContent = data.message;
+    greetingEl.classList.add('cc-show');
+    var badge = document.getElementById('imsg-badge');
+    badge.style.display = 'flex';
+    setTimeout(function() {
+      if (!imsgIsOpen) hideGreeting();
+    }, 15000);
+  })
+  .catch(function(e) { console.error('Greeting error:', e); });
+}
+
+function hideGreeting() {
+  document.getElementById('cozy-chat-greeting').classList.remove('cc-show');
+}
+
+/* ── STATE PERSISTENCE ────────────────────────────────────────── */
+function saveState() {
+  sessionStorage.setItem('cozy_chat_open', imsgIsOpen ? '1' : '0');
+  sessionStorage.setItem('cozy_chat_interacted', imsgHadInteraction ? '1' : '0');
+}
+
+function restoreState() {
+  var wasOpen = sessionStorage.getItem('cozy_chat_open') === '1';
+  if (wasOpen || imsgHadInteraction) {
+    imsgToggle();
+  }
+}
+
+/* ── UTILITIES ────────────────────────────────────────────────── */
+function scrollBottom() {
+  var el = document.getElementById('imsg-msgs');
+  requestAnimationFrame(function() { el.scrollTop = el.scrollHeight; });
+}
+function imsgTime() {
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+function imsgAutoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+function imsgToggleSend() {
+  var hasText = !!document.getElementById('imsg-textarea').value.trim();
+  var hasImg = !!imsgPendingImg;
+  document.getElementById('imsg-send-btn').disabled = !(hasText || hasImg);
+}
+
+/* ── BEHAVIORAL API ───────────────────────────────────────────── */
+window.__cozyChatBehavioral = window.__cozyChatBehavioral || {};
+window.__cozyChatBehavioral.getVisitorId = function() { return imsgVisitorId; };
+
+/* ── START ────────────────────────────────────────────────────── */
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
 })();
