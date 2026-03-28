@@ -80,6 +80,10 @@ app.get('/health', (req, res) => {
 // Widget loader endpoint — returns the JS snippet
 app.get('/loader.js', (req, res) => {
   const widgetHost = process.env.WIDGET_HOST || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+  const storeName = process.env.WIDGET_STORE_NAME || 'Limited Armor';
+  const storeUrl = process.env.WIDGET_STORE_URL || 'https://limitedarmor.com';
+  const avatar = process.env.WIDGET_AVATAR || '🛡️';
+  const supportEmail = process.env.WIDGET_SUPPORT_EMAIL || 'support@limitedarmor.com';
   res.setHeader('Content-Type', 'application/javascript');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'public, max-age=1800');
@@ -87,7 +91,13 @@ app.get('/loader.js', (req, res) => {
     (function() {
       if (window.__cozyChatLoaded) return;
       window.__cozyChatLoaded = true;
-      window.__cozyChatConfig = { host: "${widgetHost}" };
+      window.__cozyChatConfig = {
+        host: "${widgetHost}",
+        storeName: "${storeName}",
+        storeUrl: "${storeUrl}",
+        avatar: "${avatar}",
+        supportEmail: "${supportEmail}"
+      };
       var link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = '${widgetHost}/widget/css/widget.css';

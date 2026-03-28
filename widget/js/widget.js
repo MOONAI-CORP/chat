@@ -6,7 +6,7 @@
   'use strict';
 
   const HOST = window.__cozyChatConfig?.host || '';
-  const STORE_URL = 'https://limitedarmor.com';
+  const STORE_URL = window.__cozyChatConfig?.storeUrl || 'https://limitedarmor.com';
 
   const state = {
     isOpen: false,
@@ -46,9 +46,9 @@
       <!-- Chat Panel -->
       <div id="cozy-chat-panel">
         <div class="cc-header">
-          <div class="cc-header-avatar">🛡️</div>
+          <div class="cc-header-avatar">${window.__cozyChatConfig?.avatar || '🛡️'}</div>
           <div class="cc-header-info">
-            <div class="cc-header-name">Limited Armor</div>
+            <div class="cc-header-name">${window.__cozyChatConfig?.storeName || 'Limited Armor'}</div>
             <div class="cc-header-status">Online now</div>
           </div>
           <button class="cc-header-close" aria-label="Close chat">
@@ -77,7 +77,7 @@
           </button>
         </div>
 
-        <div class="cc-powered">Powered by Limited Armor AI</div>
+        <div class="cc-powered">Powered by ${window.__cozyChatConfig?.storeName || 'Limited Armor'} AI</div>
       </div>
     `;
 
@@ -221,7 +221,7 @@
       loadHistory(savedConvoId);
     } else {
       // Send initial greeting as first message
-      addAssistantMessage("Hey! Welcome to Limited Armor 🛡️ I'm here to help you find the perfect case, band, or accessory. What device are you shopping for?");
+      addAssistantMessage(`Hey! Welcome to ${window.__cozyChatConfig?.storeName || 'Limited Armor'} ${window.__cozyChatConfig?.avatar || '🛡️'} I'm here to help — ask me anything!`);
     }
   }
 
@@ -251,10 +251,10 @@
           }
         }
       } else {
-        addAssistantMessage("Hey! Welcome back to Limited Armor ☁️ How can I help you today?");
+        addAssistantMessage(`Hey! Welcome back to ${window.__cozyChatConfig?.storeName || 'Limited Armor'} ${window.__cozyChatConfig?.avatar || '🛡️'} How can I help you today?`);
       }
     } catch (e) {
-      addAssistantMessage("Hey! Welcome to Limited Armor 🛡️ I'm here to help you find the perfect case, band, or accessory. What device are you shopping for?");
+      addAssistantMessage(`Hey! Welcome to ${window.__cozyChatConfig?.storeName || 'Limited Armor'} ${window.__cozyChatConfig?.avatar || '🛡️'} I'm here to help — ask me anything!`);
     }
   }
 
@@ -330,7 +330,7 @@
       }
     } catch (err) {
       hideTyping();
-      addAssistantMessage("Sorry, I'm having a moment! Please try again or email us at support@limitedarmor.com 💙");
+      addAssistantMessage("Sorry, I'm having a moment! Please try again or email us at ${window.__cozyChatConfig?.supportEmail || 'support@limitedarmor.com'} 💙");
     }
   }
 
@@ -441,7 +441,7 @@
       } catch (e) {
         capture.querySelector('.cc-email-capture-form').innerHTML = `
           <div class="cc-email-capture-success" style="color: var(--cc-text-light);">
-            Something went wrong. Email support@limitedarmor.com for your discount!
+            Something went wrong. Email ${window.__cozyChatConfig?.supportEmail || 'support@limitedarmor.com'} for your discount!
           </div>
         `;
       }
