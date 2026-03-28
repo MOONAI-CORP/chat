@@ -58,7 +58,7 @@ const eventLimiter = rateLimit({
 app.use('/widget', express.static(path.join(__dirname, '..', 'widget'), {
   setHeaders: (res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Cache-Control', 'public, max-age=300');
   },
 }));
 
@@ -86,7 +86,8 @@ app.get('/loader.js', (req, res) => {
   const supportEmail = process.env.WIDGET_SUPPORT_EMAIL || 'support@limitedarmor.com';
   res.setHeader('Content-Type', 'application/javascript');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'public, max-age=1800');
+  const version = Date.now();
+  res.setHeader('Cache-Control', 'public, max-age=300');
   res.send(`
     (function() {
       if (window.__cozyChatLoaded) return;
@@ -100,13 +101,13 @@ app.get('/loader.js', (req, res) => {
       };
       var link = document.createElement('link');
       link.rel = 'stylesheet';
-      link.href = '${widgetHost}/widget/css/widget.css';
+      link.href = '${widgetHost}/widget/css/widget.css?v=' + ${version};
       document.head.appendChild(link);
       var script = document.createElement('script');
-      script.src = '${widgetHost}/widget/js/behavioral.js';
+      script.src = '${widgetHost}/widget/js/behavioral.js?v=' + ${version};
       script.onload = function() {
         var main = document.createElement('script');
-        main.src = '${widgetHost}/widget/js/widget.js';
+        main.src = '${widgetHost}/widget/js/widget.js?v=' + ${version};
         document.body.appendChild(main);
       };
       document.body.appendChild(script);
