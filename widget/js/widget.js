@@ -54,9 +54,8 @@
             </div>
           </div>
           <button class="cc-header-close" aria-label="Close chat">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
             </svg>
           </button>
         </div>
@@ -70,13 +69,14 @@
         </div>
 
         <div class="cc-input-area">
-          <textarea class="cc-input" id="cozy-chat-input" placeholder="Message..." rows="1"></textarea>
-          <button class="cc-send-btn" id="cozy-chat-send" aria-label="Send message">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-          </button>
+          <div class="cc-input-row">
+            <textarea class="cc-input" id="cozy-chat-input" placeholder="Type a message..." rows="1"></textarea>
+            <button class="cc-send-btn" id="cozy-chat-send" aria-label="Send message">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+            </button>
+          </div>
+          <div class="cc-powered">Powered by <b>${window.__cozyChatConfig?.storeName || 'Limited Armor'}</b></div>
         </div>
-
-        <div class="cc-powered">Powered by ${window.__cozyChatConfig?.storeName || 'Limited Armor'} AI</div>
       </div>
     `;
 
@@ -112,10 +112,16 @@
       }
     });
 
-    // Auto-resize textarea
+    // Auto-resize textarea + toggle send button visibility
     input.addEventListener('input', () => {
       input.style.height = 'auto';
-      input.style.height = Math.min(input.scrollHeight, 100) + 'px';
+      input.style.height = Math.min(input.scrollHeight, 80) + 'px';
+      const sendBtn = document.getElementById('cozy-chat-send');
+      if (input.value.trim()) {
+        sendBtn.classList.add('cc-visible');
+      } else {
+        sendBtn.classList.remove('cc-visible');
+      }
     });
 
     // Listen for behavioral triggers
@@ -230,6 +236,16 @@
     messagesEl.appendChild(typing);
   }
 
+  function addTimestamp() {
+    const messagesEl = document.getElementById('cozy-chat-messages');
+    const typing = document.getElementById('cozy-chat-typing');
+    const ts = document.createElement('div');
+    ts.className = 'cc-timestamp';
+    const now = new Date();
+    ts.textContent = 'Today ' + now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    messagesEl.insertBefore(ts, typing);
+  }
+
   function loadSession() {
     state.visitorId = window.__cozyChatBehavioral?.getVisitorId() || getVisitorId();
 
@@ -237,6 +253,7 @@
     clearMessages();
 
     const savedConvoId = sessionStorage.getItem('cozy_convo_id');
+    addTimestamp();
     if (savedConvoId) {
       state.conversationId = savedConvoId;
       loadHistory(savedConvoId);
@@ -252,6 +269,7 @@
 
       // Clear again in case of race condition
       clearMessages();
+      addTimestamp();
 
       if (data.messages && data.messages.length > 0) {
         for (const msg of data.messages) {
@@ -295,6 +313,7 @@
     saveState();
     input.value = '';
     input.style.height = 'auto';
+    document.getElementById('cozy-chat-send').classList.remove('cc-visible');
 
     // Add user message to UI
     addUserMessageBubble(message);
@@ -358,11 +377,27 @@
     const messagesEl = document.getElementById('cozy-chat-messages');
     const typing = document.getElementById('cozy-chat-typing');
 
-    const msgEl = document.createElement('div');
-    msgEl.className = 'cc-message cc-user';
-    msgEl.textContent = text;
+    // Remove previous delivered indicator
+    const oldDelivered = messagesEl.querySelector('.cc-delivered');
+    if (oldDelivered) oldDelivered.remove();
 
+    // Remove tail from previous user bubble
+    const prevUserTail = messagesEl.querySelector('.cc-message.cc-user.cc-tail:last-of-type');
+    // Actually update all tails
+    updateBubbleTails(messagesEl);
+
+    const msgEl = document.createElement('div');
+    msgEl.className = 'cc-message cc-user cc-tail';
+    msgEl.textContent = text;
     messagesEl.insertBefore(msgEl, typing);
+
+    // Add delivered indicator
+    const delivered = document.createElement('div');
+    delivered.className = 'cc-delivered';
+    delivered.textContent = 'Delivered';
+    messagesEl.insertBefore(delivered, typing);
+
+    updateBubbleTails(messagesEl);
     scrollToBottom();
   }
 
@@ -370,12 +405,35 @@
     const messagesEl = document.getElementById('cozy-chat-messages');
     const typing = document.getElementById('cozy-chat-typing');
 
-    const msgEl = document.createElement('div');
-    msgEl.className = 'cc-message cc-assistant';
-    msgEl.innerHTML = formatMessage(text);
+    // Remove delivered indicator when agent replies
+    const oldDelivered = messagesEl.querySelector('.cc-delivered');
+    if (oldDelivered) oldDelivered.remove();
 
+    const msgEl = document.createElement('div');
+    msgEl.className = 'cc-message cc-assistant cc-tail';
+    msgEl.innerHTML = formatMessage(text);
     messagesEl.insertBefore(msgEl, typing);
+
+    updateBubbleTails(messagesEl);
     scrollToBottom();
+  }
+
+  // Group bubbles — only the last bubble in a consecutive group gets the tail
+  function updateBubbleTails(container) {
+    const msgs = container.querySelectorAll('.cc-message');
+    msgs.forEach((msg, i) => {
+      const next = msgs[i + 1];
+      const isUser = msg.classList.contains('cc-user');
+      const nextSameSender = next && (
+        (isUser && next.classList.contains('cc-user')) ||
+        (!isUser && next.classList.contains('cc-assistant'))
+      );
+      if (nextSameSender) {
+        msg.classList.remove('cc-tail');
+      } else {
+        msg.classList.add('cc-tail');
+      }
+    });
   }
 
   function formatMessage(text) {
