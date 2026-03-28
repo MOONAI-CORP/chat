@@ -71,7 +71,7 @@ You can perform these actions by including special tags in your response:
 ## CONVERSATION GUIDELINES
 
 1. **Opening**: Be warm but concise. Don't overwhelm. Ask what they're looking for.
-2. **Product Discovery**: Ask about their needs (bed size, material preference, budget, who it's for).
+2. **Product Discovery**: Ask about their needs (phone model, style preference, budget, who it's for).
 3. **Recommendations**: Suggest 1-3 products max. Explain WHY each fits their needs.
 4. **Objection Handling**: Address concerns with empathy. Lean on the 365-day guarantee and free shipping.
 5. **Email Capture**: If they seem interested but not ready to buy, naturally offer the ${brand.emailCapture.discountOffer} discount for their email.
@@ -86,10 +86,10 @@ You can perform these actions by including special tags in your response:
 - Emojis sparingly — max 1-2 per message, only when natural.
 
 ## IMPORTANT RULES
-- Never mention you are Claude, an AI, or a chatbot. You are the Cozy Cloud shopping assistant.
+- Never mention you are Claude, an AI, or a chatbot. You are the Limited Armor shopping assistant.
 - Never discuss competitors or their products.
 - Never make up product information — only reference products in your catalog.
-- If you don't know something, say "Let me check on that" or direct them to support@cozycloudco.com.
+- If you don't know something, say "Let me check on that" or direct them to ${brand.supportEmail}.
 - Always prioritize helpfulness over selling.`;
   }
 
@@ -256,27 +256,109 @@ You can perform these actions by including special tags in your response:
     return { cleanMessage, productCards, showEmailCapture, links, orderData };
   }
 
-  async generateGreeting(sourcePage, triggerType) {
-    const greetings = {
-      'exit-intent': "Wait — before you go! 👋 Need help finding the right case for your phone? I can help you out.",
-      'inactivity': "Hey! Looks like you might need a hand. I know every case in our catalog — ask me anything! 🔥",
-      'scroll-depth': "You've been browsing for a bit — need help picking the perfect case or band? I got you! 💪",
-      'time-on-page': "Hi! I see you're checking things out. Want me to help you find the perfect match for your device?",
-      'default': "Hey! Welcome to Limited Armor 🛡️ I'm here to help you find the perfect case, band, or accessory. What device are you shopping for?",
+  async generateGreeting(sourcePage, triggerType, context = {}) {
+    // For simple cases, use fast static greetings
+    // For rich context, use AI-generated greetings
+    const hasRichContext = context.productsViewed?.length > 0
+      || context.isReturnVisitor
+      || context.addToCartCount > 0
+      || context.sessionPages?.length > 2;
+
+    if (hasRichContext) {
+      return this.generateAIGreeting(sourcePage, triggerType, context);
+    }
+
+    // Static greetings for simple triggers
+    if (sourcePage.includes('/products/')) {
+      const handle = sourcePage.split('/products/')[1]?.split('?')[0];
+      const db = getDb();
+      const product = db.prepare('SELECT title, price_min FROM products WHERE handle = ?').get(handle);
+      if (product) {
+        return `Checking out the ${product.title}? Great choice — want me to tell you more about it or help you find a matching band or accessory?`;
+      }
+      return "Nice pick! Want me to tell you more about this or help find matching accessories?";
+    }
+    if (sourcePage.includes('/collections/')) {
+      const handle = sourcePage.split('/collections/')[1]?.split('?')[0];
+      const collectionNames = {
+        'iphone-cases': 'iPhone cases',
+        'samsung-cases': 'Samsung cases',
+        'pixel-cases': 'Pixel cases',
+        'watch-bands': 'watch bands',
+        'keychains': 'keychains',
+        'magsafe-wallets': 'MagSafe wallets',
+        'puffer-cases': 'puffer cases',
+      };
+      const name = collectionNames[handle] || 'products';
+      return `Browsing ${name}? Tell me your device model and I'll find the perfect match for you 🔥`;
+    }
+    if (sourcePage === '/cart') {
+      return "Almost there! Got any questions before checkout? I can also suggest a matching accessory to complete the look 👊";
+    }
+
+    const defaults = {
+      'exit-intent': "Wait — before you go! Need help finding the right case? I know every product in our catalog.",
+      'inactivity': "Need a hand? Tell me your phone model and I'll find the best case for you.",
+      'scroll-depth': "You've been browsing — want me to narrow it down? What device are you shopping for?",
+      'time-on-page': "Hey! Looking for something specific? I can help you find the perfect case, band, or accessory.",
+      'default': "Hey! Welcome to Limited Armor 🛡️ What device are you shopping for?",
     };
 
-    // Page-specific greetings
-    if (sourcePage.includes('/collections/')) {
-      return "Great collection! Need help narrowing it down? Tell me your phone model and I'll find the best options for you 🔥";
-    }
-    if (sourcePage.includes('/products/')) {
-      return "Nice pick! Want me to tell you more about this product or help you find matching accessories? 💪";
-    }
-    if (sourcePage.includes('/cart')) {
-      return "Almost there! 🎉 Have any questions before you checkout? Want me to suggest any matching accessories?";
-    }
+    return defaults[triggerType] || defaults['default'];
+  }
 
-    return greetings[triggerType] || greetings['default'];
+  async generateAIGreeting(sourcePage, triggerType, context) {
+    try {
+      const db = getDb();
+
+      // Get names of recently viewed products
+      let viewedNames = [];
+      if (context.productsViewed?.length > 0) {
+        const placeholders = context.productsViewed.map(() => '?').join(',');
+        viewedNames = db.prepare(
+          `SELECT title, handle, price_min FROM products WHERE handle IN (${placeholders}) LIMIT 5`
+        ).all(...context.productsViewed).map(p => p.title);
+      }
+
+      // Get current product if on product page
+      let currentProduct = null;
+      if (sourcePage.includes('/products/')) {
+        const handle = sourcePage.split('/products/')[1]?.split('?')[0];
+        currentProduct = db.prepare('SELECT title, price_min FROM products WHERE handle = ?').get(handle);
+      }
+
+      const prompt = `Generate a short, proactive chat greeting (1-2 sentences max) for a visitor on ${brand.storeName}.
+
+CONTEXT:
+- Trigger: ${triggerType}
+- Current page: ${sourcePage}
+${currentProduct ? `- Currently viewing: ${currentProduct.title} ($${currentProduct.price_min})` : ''}
+${viewedNames.length > 0 ? `- Products browsed this session: ${viewedNames.join(', ')}` : ''}
+- Return visitor: ${context.isReturnVisitor ? `Yes (visit #${context.visitCount})` : 'No, first visit'}
+${context.addToCartCount > 0 ? `- Added ${context.addToCartCount} item(s) to cart` : ''}
+${context.sessionPages?.length > 2 ? `- Browsed ${context.sessionPages.length} pages this session` : ''}
+
+RULES:
+- Be specific to what they're doing — reference the actual product or behavior
+- Sound like a knowledgeable friend, not a salesperson
+- Don't say "I noticed" or "I see you" — just naturally offer help
+- Max 1 emoji
+- If they're comparing products, help them decide
+- If they added to cart but haven't checked out, gently nudge
+- If return visitor, acknowledge familiarity without being creepy
+- Keep it under 25 words`;
+
+      const response = await this.getClient().messages.create({
+        model: this.model,
+        max_tokens: 100,
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      return response.content[0].text.trim().replace(/^["']|["']$/g, '');
+    } catch (e) {
+      console.error('AI greeting error:', e.message);
+      return "Hey! Need help finding something? I know every product in our catalog 🛡️";
+    }
   }
 
   getConversationHistory(conversationId) {

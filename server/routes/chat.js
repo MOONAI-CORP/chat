@@ -29,8 +29,8 @@ router.post('/message', async (req, res) => {
 // Get a greeting message
 router.post('/greeting', async (req, res) => {
   try {
-    const { sourcePage, triggerType } = req.body;
-    const greeting = await chatService.generateGreeting(sourcePage || '/', triggerType || 'default');
+    const { sourcePage, triggerType, ...context } = req.body;
+    const greeting = await chatService.generateGreeting(sourcePage || '/', triggerType || 'default', context);
     res.json({ message: greeting });
   } catch (err) {
     console.error('Greeting error:', err);

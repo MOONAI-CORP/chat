@@ -122,7 +122,7 @@
     // Listen for behavioral triggers
     window.addEventListener('cozy-chat-trigger', (e) => {
       if (!state.isOpen && !state.greetingShown) {
-        showGreeting(e.detail.type, e.detail.sourcePage);
+        showGreeting(e.detail);
       }
     });
   }
@@ -176,14 +176,25 @@
 
   // ── Greeting ──
 
-  async function showGreeting(triggerType, sourcePage) {
+  async function showGreeting(triggerDetail) {
     state.greetingShown = true;
+    const triggerType = triggerDetail.type || 'default';
+    const sourcePage = triggerDetail.sourcePage || window.location.pathname;
 
     try {
       const res = await fetch(`${HOST}/api/chat/greeting`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourcePage, triggerType }),
+        body: JSON.stringify({
+          sourcePage,
+          triggerType,
+          isReturnVisitor: triggerDetail.isReturnVisitor,
+          visitCount: triggerDetail.visitCount,
+          productsViewed: triggerDetail.productsViewed,
+          sessionPages: triggerDetail.sessionPages,
+          addToCartCount: triggerDetail.addToCartCount,
+          cartDetected: triggerDetail.cartDetected,
+        }),
       });
       const data = await res.json();
 

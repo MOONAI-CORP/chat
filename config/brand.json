@@ -38,22 +38,22 @@
     "exchanges": "Contact support for exchange requests."
   },
   "collections": [
-    { "name": "iPhone Cases", "url": "/collections" },
-    { "name": "Samsung Cases", "url": "/collections" },
-    { "name": "Pixel Cases", "url": "/collections" },
-    { "name": "Apple Watch Bands", "url": "/collections" },
-    { "name": "MagSafe Wallets", "url": "/collections" },
-    { "name": "MagSafe CardHolders", "url": "/collections" },
-    { "name": "Keychains", "url": "/collections" }
+    { "name": "iPhone Cases", "url": "/collections/iphone-cases" },
+    { "name": "Samsung Cases", "url": "/collections/samsung-cases" },
+    { "name": "Pixel Cases", "url": "/collections/pixel-cases" },
+    { "name": "Apple Watch Bands", "url": "/collections/watch-bands" },
+    { "name": "MagSafe Wallets", "url": "/collections/magsafe-wallets" },
+    { "name": "Keychains", "url": "/collections/keychains" },
+    { "name": "Puffer Cases", "url": "/collections/puffer-cases" }
   ],
   "currentPromotion": {
-    "active": false,
-    "name": "",
-    "discount": "",
+    "active": true,
+    "name": "Buy 2 Get 1 FREE",
+    "discount": "Add 3 items to cart — cheapest is free + free screen protector with case purchase",
     "code": null,
-    "autoApplied": false,
-    "freeShipping": false,
-    "message": ""
+    "autoApplied": true,
+    "freeShipping": true,
+    "message": "Buy 2 Cases, Get 1 FREE | Limited Time"
   },
   "emailCapture": {
     "enabled": true,
