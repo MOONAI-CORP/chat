@@ -46,13 +46,15 @@
       <!-- Chat Panel -->
       <div id="cozy-chat-panel">
         <div class="cc-header">
-          <div class="cc-header-avatar">${window.__cozyChatConfig?.avatar || '🛡️'}</div>
-          <div class="cc-header-info">
-            <div class="cc-header-name">${window.__cozyChatConfig?.storeName || 'Limited Armor'}</div>
-            <div class="cc-header-status">Online now</div>
+          <div class="cc-header-left">
+            <div class="cc-header-avatar">${window.__cozyChatConfig?.avatar || '🛡️'}</div>
+            <div class="cc-header-info">
+              <div class="cc-header-name">${window.__cozyChatConfig?.storeName || 'Limited Armor'}</div>
+              <div class="cc-header-status"><span class="cc-status-dot"></span>Online now</div>
+            </div>
           </div>
           <button class="cc-header-close" aria-label="Close chat">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/>
               <line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
@@ -68,12 +70,9 @@
         </div>
 
         <div class="cc-input-area">
-          <textarea class="cc-input" id="cozy-chat-input" placeholder="Ask me anything..." rows="1"></textarea>
+          <textarea class="cc-input" id="cozy-chat-input" placeholder="Message..." rows="1"></textarea>
           <button class="cc-send-btn" id="cozy-chat-send" aria-label="Send message">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"/>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-            </svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           </button>
         </div>
 
@@ -224,17 +223,25 @@
 
   // ── Session Management ──
 
+  function clearMessages() {
+    const messagesEl = document.getElementById('cozy-chat-messages');
+    const typing = document.getElementById('cozy-chat-typing');
+    messagesEl.innerHTML = '';
+    messagesEl.appendChild(typing);
+  }
+
   function loadSession() {
     state.visitorId = window.__cozyChatBehavioral?.getVisitorId() || getVisitorId();
 
-    // Check for existing conversation
+    // Always clear first to prevent duplicates
+    clearMessages();
+
     const savedConvoId = sessionStorage.getItem('cozy_convo_id');
     if (savedConvoId) {
       state.conversationId = savedConvoId;
       loadHistory(savedConvoId);
     } else {
-      // Send initial greeting as first message
-      addAssistantMessage(`Hey! Welcome to ${window.__cozyChatConfig?.storeName || 'Limited Armor'} ${window.__cozyChatConfig?.avatar || '🛡️'} I'm here to help — ask me anything!`);
+      addAssistantMessage(`Hey! Welcome to ${window.__cozyChatConfig?.storeName || 'Limited Armor'} ${window.__cozyChatConfig?.avatar || '🛡️'}\n\nWhat are you shopping for today? A new phone case, Apple Watch band, wallet, or something else?`);
     }
   }
 
@@ -243,13 +250,10 @@
       const res = await fetch(`${HOST}/api/chat/history/${conversationId}`);
       const data = await res.json();
 
-      if (data.messages && data.messages.length > 0) {
-        const messagesEl = document.getElementById('cozy-chat-messages');
-        // Clear existing messages (except typing indicator)
-        const typing = document.getElementById('cozy-chat-typing');
-        messagesEl.innerHTML = '';
-        messagesEl.appendChild(typing);
+      // Clear again in case of race condition
+      clearMessages();
 
+      if (data.messages && data.messages.length > 0) {
         for (const msg of data.messages) {
           if (msg.role === 'user') {
             addUserMessageBubble(msg.content);
@@ -264,10 +268,10 @@
           }
         }
       } else {
-        addAssistantMessage(`Hey! Welcome back to ${window.__cozyChatConfig?.storeName || 'Limited Armor'} ${window.__cozyChatConfig?.avatar || '🛡️'} How can I help you today?`);
+        addAssistantMessage(`Hey! Welcome back to ${window.__cozyChatConfig?.storeName || 'Limited Armor'} ${window.__cozyChatConfig?.avatar || '🛡️'}\n\nHow can I help you today?`);
       }
     } catch (e) {
-      addAssistantMessage(`Hey! Welcome to ${window.__cozyChatConfig?.storeName || 'Limited Armor'} ${window.__cozyChatConfig?.avatar || '🛡️'} I'm here to help — ask me anything!`);
+      addAssistantMessage(`Hey! Welcome to ${window.__cozyChatConfig?.storeName || 'Limited Armor'} ${window.__cozyChatConfig?.avatar || '🛡️'}\n\nI'm here to help — ask me anything!`);
     }
   }
 
