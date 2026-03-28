@@ -79,7 +79,7 @@ app.get('/health', (req, res) => {
 
 // Widget loader endpoint — returns the JS snippet
 app.get('/loader.js', (req, res) => {
-  const widgetHost = process.env.WIDGET_HOST || `http://localhost:${PORT}`;
+  const widgetHost = process.env.WIDGET_HOST || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
   res.setHeader('Content-Type', 'application/javascript');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'public, max-age=1800');
