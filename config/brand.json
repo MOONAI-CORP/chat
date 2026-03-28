@@ -1,0 +1,64 @@
+{
+  "storeName": "Limited Armor",
+  "storeUrl": "https://limitedarmor.com",
+  "supportEmail": "support@limitedarmor.com",
+  "brandVoice": {
+    "tone": "confident, trendy, streetwear-savvy but approachable",
+    "personality": "Like a knowledgeable friend who knows all the latest phone case trends and accessories",
+    "doNot": [
+      "Use overly formal or corporate language",
+      "Make claims about product durability without basis",
+      "Mention competitors by name",
+      "Promise exact delivery dates unless confirmed by order data"
+    ],
+    "do": [
+      "Emphasize the style, design, and exclusivity of the products",
+      "Reference the premium materials (aluminum, carbon, leather, titanium)",
+      "Highlight the MagSafe compatibility where applicable",
+      "Use trendy, confident language that matches the streetwear aesthetic",
+      "Suggest complementary products (case + band + keychain combos)"
+    ]
+  },
+  "theme": {
+    "primaryColor": "#1a1a2e",
+    "secondaryColor": "#16213e",
+    "accentColor": "#e94560",
+    "backgroundColor": "#0f0f1a",
+    "textColor": "#ffffff",
+    "bubbleColor": "#1a1a2e",
+    "fontFamily": "'Plus Jakarta Sans', 'DM Sans', sans-serif",
+    "borderRadius": "16px",
+    "chatBubblePosition": "bottom-right",
+    "chatBubbleSize": "60px"
+  },
+  "policies": {
+    "shipping": "Standard shipping available worldwide. Check checkout for rates and delivery estimates.",
+    "returns": "Contact support to initiate a return or exchange within the return window.",
+    "guarantee": "All products are quality checked before shipping.",
+    "exchanges": "Contact support for exchange requests."
+  },
+  "collections": [
+    { "name": "iPhone Cases", "url": "/collections" },
+    { "name": "Samsung Cases", "url": "/collections" },
+    { "name": "Pixel Cases", "url": "/collections" },
+    { "name": "Apple Watch Bands", "url": "/collections" },
+    { "name": "MagSafe Wallets", "url": "/collections" },
+    { "name": "MagSafe CardHolders", "url": "/collections" },
+    { "name": "Keychains", "url": "/collections" }
+  ],
+  "currentPromotion": {
+    "active": false,
+    "name": "",
+    "discount": "",
+    "code": null,
+    "autoApplied": false,
+    "freeShipping": false,
+    "message": ""
+  },
+  "emailCapture": {
+    "enabled": true,
+    "discountOffer": "10% OFF",
+    "discountCode": "WELCOME10",
+    "message": "Want 10% off your first order? Drop your email and we'll hook you up! 🔥"
+  }
+}

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cozy Cloud Chat — Admin Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <div class="dash-app">
+    <!-- Sidebar -->
+    <aside class="dash-sidebar">
+      <div class="dash-logo">
+        <span class="dash-logo-icon">☁️</span>
+        <span class="dash-logo-text">Cozy Cloud</span>
+      </div>
+      <nav class="dash-nav">
+        <a href="#" class="dash-nav-item active" data-tab="overview">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          Overview
+        </a>
+        <a href="#" class="dash-nav-item" data-tab="conversations">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          Conversations
+        </a>
+        <a href="#" class="dash-nav-item" data-tab="emails">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Email Captures
+        </a>
+        <a href="#" class="dash-nav-item" data-tab="settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m-6-9H0m18 0h6"/></svg>
+          Settings
+        </a>
+      </nav>
+      <div class="dash-sidebar-footer">
+        <button id="sync-products-btn" class="dash-btn dash-btn-outline">Sync Products</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="dash-main">
+      <!-- Overview Tab -->
+      <section id="tab-overview" class="dash-tab active">
+        <div class="dash-header">
+          <h1>Dashboard Overview</h1>
+          <select id="date-range" class="dash-select">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+        </div>
+
+        <div class="dash-stats">
+          <div class="dash-stat-card">
+            <div class="dash-stat-label">Conversations</div>
+            <div class="dash-stat-value" id="stat-conversations">0</div>
+          </div>
+          <div class="dash-stat-card">
+            <div class="dash-stat-label">Unique Visitors</div>
+            <div class="dash-stat-value" id="stat-visitors">0</div>
+          </div>
+          <div class="dash-stat-card">
+            <div class="dash-stat-label">Emails Captured</div>
+            <div class="dash-stat-value" id="stat-emails">0</div>
+          </div>
+          <div class="dash-stat-card">
+            <div class="dash-stat-label">Conversion Rate</div>
+            <div class="dash-stat-value" id="stat-cvr">0%</div>
+          </div>
+          <div class="dash-stat-card">
+            <div class="dash-stat-label">Revenue via Chat</div>
+            <div class="dash-stat-value" id="stat-revenue">$0</div>
+          </div>
+          <div class="dash-stat-card">
+            <div class="dash-stat-label">Avg Messages/Convo</div>
+            <div class="dash-stat-value" id="stat-avg-msgs">0</div>
+          </div>
+        </div>
+
+        <div class="dash-grid">
+          <div class="dash-card">
+            <h3>Top Trigger Types</h3>
+            <div id="triggers-list" class="dash-list"></div>
+          </div>
+          <div class="dash-card">
+            <h3>Top Pages</h3>
+            <div id="pages-list" class="dash-list"></div>
+          </div>
+        </div>
+
+        <div class="dash-card">
+          <h3>Daily Activity</h3>
+          <div id="daily-table-container">
+            <table class="dash-table" id="daily-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Conversations</th>
+                  <th>Messages</th>
+                  <th>Visitors</th>
+                  <th>Conversions</th>
+                </tr>
+              </thead>
+              <tbody id="daily-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Conversations Tab -->
+      <section id="tab-conversations" class="dash-tab">
+        <div class="dash-header">
+          <h1>Conversations</h1>
+          <select id="convo-filter" class="dash-select">
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="ended">Ended</option>
+          </select>
+        </div>
+        <div id="conversations-list" class="dash-conversations"></div>
+        <div id="conversation-detail" class="dash-conversation-detail" style="display:none;">
+          <button id="back-to-list" class="dash-btn dash-btn-outline">&larr; Back</button>
+          <div id="conversation-messages" class="dash-messages-viewer"></div>
+        </div>
+      </section>
+
+      <!-- Emails Tab -->
+      <section id="tab-emails" class="dash-tab">
+        <div class="dash-header">
+          <h1>Email Captures</h1>
+          <button id="export-emails" class="dash-btn">Export CSV</button>
+        </div>
+        <table class="dash-table">
+          <thead>
+            <tr><th>Email</th><th>Discount Code</th><th>Page</th><th>Date</th></tr>
+          </thead>
+          <tbody id="emails-table-body"></tbody>
+        </table>
+      </section>
+
+      <!-- Settings Tab -->
+      <section id="tab-settings" class="dash-tab">
+        <div class="dash-header">
+          <h1>Settings</h1>
+        </div>
+        <div class="dash-card">
+          <h3>Widget Integration</h3>
+          <p>Add this script to your Shopify theme (before <code>&lt;/body&gt;</code>):</p>
+          <pre class="dash-code" id="integration-code"></pre>
+          <button class="dash-btn" onclick="navigator.clipboard.writeText(document.getElementById('integration-code').textContent)">Copy Code</button>
+        </div>
+        <div class="dash-card">
+          <h3>Sync Products</h3>
+          <p>Pull latest products from your Shopify store into the AI knowledge base.</p>
+          <button id="sync-products-btn-2" class="dash-btn">Sync Now</button>
+          <span id="sync-status"></span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
