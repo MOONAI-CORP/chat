@@ -150,6 +150,7 @@
     badge.classList.remove('cc-show');
 
     window.dispatchEvent(new CustomEvent('cozy-chat-opened'));
+    saveState();
 
     // Load session or start new
     loadSession();
@@ -168,6 +169,7 @@
 
     panel.classList.remove('cc-open');
     bubble.classList.remove('cc-open');
+    saveState();
 
     window.dispatchEvent(new CustomEvent('cozy-chat-closed', {
       detail: { hadInteraction: state.hadInteraction }
@@ -286,6 +288,7 @@
     if (!message) return;
 
     state.hadInteraction = true;
+    saveState();
     input.value = '';
     input.style.height = 'auto';
 
@@ -561,10 +564,32 @@
     }, 50);
   }
 
+  // ── Persist State ──
+
+  function saveState() {
+    sessionStorage.setItem('cozy_chat_open', state.isOpen ? '1' : '0');
+    sessionStorage.setItem('cozy_chat_interacted', state.hadInteraction ? '1' : '0');
+    if (state.greetingShown) {
+      sessionStorage.setItem('cozy_greeting_shown', '1');
+    }
+  }
+
+  function restoreState() {
+    state.hadInteraction = sessionStorage.getItem('cozy_chat_interacted') === '1';
+    state.greetingShown = sessionStorage.getItem('cozy_greeting_shown') === '1';
+    const wasOpen = sessionStorage.getItem('cozy_chat_open') === '1';
+
+    if (wasOpen || state.hadInteraction) {
+      // Re-open chat silently — restore the panel without animation delay
+      openChat();
+    }
+  }
+
   // ── Initialize ──
 
   function init() {
     createWidget();
+    restoreState();
   }
 
   if (document.readyState === 'loading') {
