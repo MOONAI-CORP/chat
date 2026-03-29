@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>iMessage Chat Widget v2 — Carbon Conceptz</title>
+  <style>
+    /* ─── RESET ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      background: #f2f2f7;
+      min-height: 100vh;
+    }
+
+    /* ─── DEMO STORE MOCKUP ─────────────────────────────────────── */
+    .demo-bg {
+      width: 100vw; height: 100vh;
+      background: linear-gradient(160deg, #0d0d0d 0%, #1a1a1a 60%, #111 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 10px; overflow: hidden; position: relative;
+    }
+    .demo-bg::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 40% at 50% 50%, rgba(0,122,255,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .demo-logo-text {
+      font-size: 13px; font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase; color: rgba(255,255,255,0.18);
+    }
+    .demo-title {
+      font-size: 36px; font-weight: 800; letter-spacing: -0.02em;
+      color: rgba(255,255,255,0.07);
+    }
+
+    /* ─── FLOATING LAUNCHER ─────────────────────────────────────── */
+    #imsg-launcher {
+      position: fixed; bottom: 28px; right: 28px;
+      width: 62px; height: 62px; border-radius: 50%;
+      cursor: pointer; z-index: 99998;
+      border: none; outline: none;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
+      background: #007aff;
+      box-shadow: 0 4px 28px rgba(0,122,255,0.55), 0 2px 8px rgba(0,0,0,0.3);
+    }
+    #imsg-launcher:hover { transform: scale(1.09); }
+    #imsg-launcher:active { transform: scale(0.94); }
+
+    /* Launcher inner — shows brand logo or default icon */
+    #imsg-launcher-inner {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    #imsg-launcher-logo {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      position: absolute; inset: 0;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    #imsg-launcher-logo.loaded { opacity: 1; }
+    #imsg-launcher-icon {
+      position: absolute;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    #imsg-launcher-icon.hide { opacity: 0; transform: scale(0.7) rotate(-20deg); }
+    #imsg-launcher-close {
+      position: absolute;
+      opacity: 0; transform: rotate(-90deg) scale(0.7);
+      transition: opacity 0.25s, transform 0.3s;
+    }
+    #imsg-launcher-close.show { opacity: 1; transform: rotate(0deg) scale(1); }
+
+    /* Notification badge */
+    #imsg-badge {
+      position: absolute; top: -1px; right: -1px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #ff3b30; border: 2.5px solid #fff;
+      font-size: 10px; font-weight: 700; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      animation: imsg-badge-pulse 2.2s infinite;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    @keyframes imsg-badge-pulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,59,48,0.5); }
+      50%       { transform: scale(1.12); box-shadow: 0 0 0 5px rgba(255,59,48,0); }
+    }
+
+    /* ─── CHAT WINDOW ───────────────────────────────────────────── */
+    #imsg-window {
+      position: fixed; bottom: 106px; right: 28px;
+      width: 375px; height: 600px;
+      border-radius: 24px; overflow: hidden;
+      z-index: 99999;
+      display: flex; flex-direction: column;
+      background: #000;
+      box-shadow:
+        0 40px 100px rgba(0,0,0,0.5),
+        0 10px 30px rgba(0,0,0,0.35),
+        0 0 0 0.5px rgba(255,255,255,0.09);
+      transform: scale(0.82) translateY(40px);
+      opacity: 0; pointer-events: none;
+      transition:
+        transform 0.38s cubic-bezier(0.34,1.56,0.64,1),
+        opacity 0.26s ease;
+      transform-origin: bottom right;
+    }
+    #imsg-window.open {
+      transform: scale(1) translateY(0);
+      opacity: 1; pointer-events: all;
+    }
+
+    /* ─── HEADER ────────────────────────────────────────────────── */
+    .imsg-header {
+      flex-shrink: 0;
+      background: rgba(28,28,30,0.97);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      padding: 0 16px;
+      border-bottom: 0.5px solid rgba(255,255,255,0.07);
+    }
+
+    /* Brand banner strip */
+    .imsg-brand-banner {
+      height: 52px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      border-bottom: 0.5px solid rgba(255,255,255,0.05);
+      overflow: hidden;
+    }
+    .imsg-brand-banner-bg {
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, rgba(0,122,255,0.18) 0%, rgba(0,122,255,0.06) 100%);
+    }
+    #imsg-brand-logo-img {
+      height: 28px; max-width: 160px;
+      object-fit: contain; position: relative; z-index: 1;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    #imsg-brand-logo-img.loaded { opacity: 1; }
+    #imsg-brand-logo-text {
+      font-size: 14px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: rgba(255,255,255,0.7);
+      position: relative; z-index: 1;
+      transition: opacity 0.3s;
+    }
+
+    /* Upload button overlays on banner */
+    .imsg-banner-upload-btn {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      z-index: 2; background: rgba(255,255,255,0.1);
+      border: 1px dashed rgba(255,255,255,0.25);
+      border-radius: 8px; padding: 4px 8px;
+      font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.5);
+      cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .imsg-banner-upload-btn:hover {
+      background: rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.85);
+      border-color: rgba(255,255,255,0.4);
+    }
+
+    /* Agent row */
+    .imsg-agent-row {
+      display: flex; align-items: center; gap: 11px;
+      padding: 12px 0 13px;
+    }
+    .imsg-avatar-wrap { position: relative; flex-shrink: 0; }
+
+    /* Avatar circle */
+    .imsg-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: linear-gradient(135deg, #007aff, #34c759);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; font-weight: 700; color: #fff;
+      overflow: hidden; position: relative;
+      border: 2px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+      transition: filter 0.2s;
+    }
+    .imsg-avatar:hover .imsg-avatar-overlay { opacity: 1; }
+    .imsg-avatar-photo {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%; object-fit: cover;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .imsg-avatar-photo.loaded { opacity: 1; }
+    .imsg-avatar-initials { position: relative; z-index: 1; transition: opacity 0.3s; }
+    .imsg-avatar-overlay {
+      position: absolute; inset: 0; z-index: 2;
+      background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.2s;
+      border-radius: 50%;
+    }
+    .imsg-avatar-overlay svg { width: 16px; height: 16px; }
+
+    /* Upload input (hidden) */
+    #imsg-avatar-input { display: none; }
+    #imsg-logo-input   { display: none; }
+
+    /* Online dot */
+    .imsg-online-dot {
+      position: absolute; bottom: 1px; right: 1px;
+      width: 12px; height: 12px;
+      background: #34c759; border-radius: 50%;
+      border: 2.5px solid rgba(28,28,30,0.97);
+    }
+
+    .imsg-header-info { flex: 1; min-width: 0; }
+    .imsg-header-name {
+      font-size: 15px; font-weight: 600; color: #fff;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .imsg-header-sub {
+      font-size: 11.5px; color: rgba(255,255,255,0.4);
+      margin-top: 1.5px;
+    }
+    .imsg-header-status {
+      font-size: 11.5px; color: #34c759; margin-top: 1px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .imsg-header-status::before {
+      content: ''; display: inline-block;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #34c759;
+    }
+
+    .imsg-header-actions { display: flex; gap: 6px; }
+    .imsg-hbtn {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(255,255,255,0.07);
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: #007aff; transition: background 0.15s;
+    }
+    .imsg-hbtn:hover { background: rgba(255,255,255,0.14); }
+    .imsg-hbtn svg { width: 15px; height: 15px; }
+
+    /* ─── MESSAGES ──────────────────────────────────────────────── */
+    .imsg-messages {
+      flex: 1; overflow-y: auto;
+      padding: 14px 14px 8px;
+      display: flex; flex-direction: column; gap: 3px;
+      background: #000;
+      scroll-behavior: smooth;
+    }
+    .imsg-messages::-webkit-scrollbar { width: 3px; }
+    .imsg-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+
+    /* Date separator */
+    .imsg-date-sep {
+      text-align: center; font-size: 11px;
+      color: rgba(255,255,255,0.3);
+      margin: 8px 0 6px; font-weight: 500; letter-spacing: 0.02em;
+    }
+
+    /* Message row */
+    .imsg-row {
+      display: flex; flex-direction: column;
+      max-width: 80%;
+      animation: imsg-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes imsg-in {
+      from { opacity: 0; transform: scale(0.82) translateY(10px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .imsg-row.sent { align-self: flex-end; align-items: flex-end; }
+    .imsg-row.recv { align-self: flex-start; align-items: flex-start; }
+
+    /* Bubble */
+    .imsg-bubble {
+      padding: 10px 14px;
+      border-radius: 20px;
+      font-size: 15px; line-height: 1.45;
+      word-break: break-word; max-width: 100%;
+    }
+    .imsg-row.sent .imsg-bubble {
+      background: #007aff; color: #fff;
+      border-bottom-right-radius: 5px;
+    }
+    .imsg-row.recv .imsg-bubble {
+      background: #1c1c1e; color: #fff;
+      border-bottom-left-radius: 5px;
+    }
+
+    /* Consecutive bubble radius adjustments */
+    .imsg-row.sent  .imsg-bubble.top    { border-top-right-radius: 20px;  border-bottom-right-radius: 5px; }
+    .imsg-row.sent  .imsg-bubble.mid    { border-top-right-radius: 5px;   border-bottom-right-radius: 5px; }
+    .imsg-row.sent  .imsg-bubble.bottom { border-top-right-radius: 5px;   border-bottom-right-radius: 20px; }
+    .imsg-row.recv  .imsg-bubble.top    { border-top-left-radius: 20px;   border-bottom-left-radius: 5px; }
+    .imsg-row.recv  .imsg-bubble.mid    { border-top-left-radius: 5px;    border-bottom-left-radius: 5px; }
+    .imsg-row.recv  .imsg-bubble.bottom { border-top-left-radius: 5px;    border-bottom-left-radius: 20px; }
+
+    /* Image bubble */
+    .imsg-bubble-img {
+      border-radius: 18px; overflow: hidden;
+      max-width: 200px; cursor: pointer;
+      border-bottom-left-radius: 5px;
+    }
+    .imsg-bubble-img img { width: 100%; display: block; }
+
+    /* Timestamp + receipt */
+    .imsg-ts {
+      font-size: 10.5px; color: rgba(255,255,255,0.28);
+      margin-top: 3px; padding: 0 4px;
+    }
+    .imsg-row.sent .imsg-ts { text-align: right; }
+    .imsg-receipt {
+      font-size: 10px; color: rgba(255,255,255,0.28);
+      text-align: right; padding: 0 4px; margin-top: 1px;
+    }
+
+    /* ─── TYPING INDICATOR ──────────────────────────────────────── */
+    .imsg-typing {
+      display: flex; align-items: center; gap: 4px;
+      padding: 11px 15px;
+      background: #1c1c1e;
+      border-radius: 20px; border-bottom-left-radius: 5px;
+      width: fit-content; margin-top: 4px;
+    }
+    .imsg-typing span {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: rgba(255,255,255,0.4);
+      animation: imsg-dot 1.4s infinite ease-in-out;
+    }
+    .imsg-typing span:nth-child(1) { animation-delay: 0s; }
+    .imsg-typing span:nth-child(2) { animation-delay: 0.2s; }
+    .imsg-typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes imsg-dot {
+      0%,60%,100% { transform: translateY(0); opacity: 0.4; }
+      30%          { transform: translateY(-5px); opacity: 1; }
+    }
+
+    /* ─── PRODUCT CARD ──────────────────────────────────────────── */
+    .imsg-product-card {
+      background: #1c1c1e; border-radius: 18px;
+      overflow: hidden; width: 230px;
+      border: 0.5px solid rgba(255,255,255,0.09);
+      cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+      text-decoration: none; display: block;
+    }
+    .imsg-product-card:hover {
+      transform: scale(1.025);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .imsg-product-thumb {
+      width: 100%; height: 130px;
+      background: linear-gradient(135deg, #1c1c1e, #2c2c2e);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 44px; overflow: hidden;
+    }
+    .imsg-product-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .imsg-product-body { padding: 11px 13px 13px; }
+    .imsg-product-name { font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 3px; line-height: 1.3; }
+    .imsg-product-price { font-size: 14px; color: #34c759; font-weight: 700; }
+    .imsg-product-cta {
+      display: block; margin-top: 9px; padding: 8px;
+      background: #007aff; border-radius: 11px;
+      text-align: center; font-size: 12.5px; font-weight: 600;
+      color: #fff; text-decoration: none;
+    }
+
+    /* ─── QUICK REPLIES ─────────────────────────────────────────── */
+    .imsg-qr-bar {
+      background: #000; padding: 7px 14px 6px;
+      display: flex; flex-wrap: wrap; gap: 7px;
+      flex-shrink: 0; border-top: 0.5px solid rgba(255,255,255,0.05);
+    }
+    .imsg-qr-chip {
+      padding: 7px 14px; border-radius: 20px;
+      border: 1px solid rgba(0,122,255,0.6);
+      color: #007aff; font-size: 13px; font-weight: 500;
+      cursor: pointer; background: transparent;
+      transition: all 0.15s; white-space: nowrap;
+      font-family: inherit;
+    }
+    .imsg-qr-chip:hover { background: #007aff; color: #fff; border-color: #007aff; }
+
+    /* ─── INPUT BAR ─────────────────────────────────────────────── */
+    .imsg-input-bar {
+      flex-shrink: 0;
+      background: rgba(28,28,30,0.98);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      padding: 9px 12px 16px;
+      display: flex; align-items: flex-end; gap: 8px;
+      border-top: 0.5px solid rgba(255,255,255,0.07);
+    }
+    .imsg-input-wrap {
+      flex: 1; background: #1c1c1e;
+      border-radius: 22px; border: 1px solid rgba(255,255,255,0.09);
+      display: flex; align-items: flex-end;
+      padding: 8px 12px; gap: 8px;
+      transition: border-color 0.2s;
+    }
+    .imsg-input-wrap:focus-within { border-color: rgba(0,122,255,0.45); }
+
+    /* Image attach button */
+    .imsg-img-btn {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(255,255,255,0.07); border: none;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; color: rgba(255,255,255,0.45);
+      transition: background 0.15s, color 0.15s;
+    }
+    .imsg-img-btn:hover { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.8); }
+    .imsg-img-btn svg { width: 14px; height: 14px; }
+    #imsg-msg-img-input { display: none; }
+
+    .imsg-textarea {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: #fff; font-size: 15px; font-family: inherit;
+      resize: none; max-height: 100px; line-height: 1.4; min-height: 22px;
+    }
+    .imsg-textarea::placeholder { color: rgba(255,255,255,0.28); }
+
+    .imsg-send-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: #007aff; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+      box-shadow: 0 2px 12px rgba(0,122,255,0.45);
+    }
+    .imsg-send-btn:hover { transform: scale(1.09); background: #0a84ff; }
+    .imsg-send-btn:active { transform: scale(0.92); }
+    .imsg-send-btn:disabled {
+      background: rgba(255,255,255,0.09); box-shadow: none; cursor: default;
+    }
+    .imsg-send-btn:disabled svg { opacity: 0.25; }
+
+    /* ─── IMAGE PREVIEW STRIP (before send) ─────────────────────── */
+    .imsg-img-preview-strip {
+      background: #000; padding: 8px 14px 4px;
+      display: none; align-items: center; gap: 8px;
+      flex-shrink: 0; border-top: 0.5px solid rgba(255,255,255,0.05);
+    }
+    .imsg-img-preview-strip.visible { display: flex; }
+    .imsg-img-preview-thumb {
+      width: 56px; height: 56px; border-radius: 10px;
+      object-fit: cover; border: 1.5px solid rgba(255,255,255,0.15);
+    }
+    .imsg-img-preview-remove {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: rgba(255,59,48,0.85); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 13px; line-height: 1;
+      margin-left: -4px; margin-top: -28px; align-self: flex-start;
+    }
+
+    /* ─── UPLOAD PANEL (settings overlay) ──────────────────────── */
+    #imsg-upload-panel {
+      position: absolute; inset: 0; z-index: 10;
+      background: rgba(0,0,0,0.92);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 24px; padding: 32px 28px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    #imsg-upload-panel.open { opacity: 1; pointer-events: all; }
+
+    .imsg-panel-title {
+      font-size: 17px; font-weight: 700; color: #fff;
+      letter-spacing: -0.01em;
+    }
+    .imsg-panel-subtitle {
+      font-size: 13px; color: rgba(255,255,255,0.4);
+      text-align: center; margin-top: -16px; line-height: 1.5;
+    }
+
+    .imsg-upload-row {
+      width: 100%; display: flex; flex-direction: column; gap: 10px;
+    }
+    .imsg-upload-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; color: rgba(255,255,255,0.35);
+    }
+
+    /* Drop zone */
+    .imsg-dropzone {
+      width: 100%; border-radius: 16px;
+      border: 1.5px dashed rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.04);
+      padding: 20px 16px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 8px;
+      cursor: pointer; transition: all 0.2s; position: relative;
+    }
+    .imsg-dropzone:hover, .imsg-dropzone.drag-over {
+      border-color: rgba(0,122,255,0.6);
+      background: rgba(0,122,255,0.07);
+    }
+    .imsg-dropzone input[type=file] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    }
+    .imsg-dropzone-icon { font-size: 28px; }
+    .imsg-dropzone-text {
+      font-size: 13px; color: rgba(255,255,255,0.5); text-align: center;
+    }
+    .imsg-dropzone-text strong { color: #007aff; }
+
+    /* Preview inside dropzone */
+    .imsg-dz-preview {
+      width: 72px; height: 72px; border-radius: 50%;
+      object-fit: cover; border: 2px solid rgba(0,122,255,0.5);
+      display: none;
+    }
+    .imsg-dz-preview.visible { display: block; }
+    .imsg-dz-preview-banner {
+      width: 100%; height: 44px; border-radius: 10px;
+      object-fit: contain; border: 1.5px solid rgba(0,122,255,0.4);
+      display: none; background: rgba(255,255,255,0.05);
+    }
+    .imsg-dz-preview-banner.visible { display: block; }
+
+    .imsg-panel-close {
+      padding: 11px 28px; border-radius: 14px;
+      background: #007aff; border: none; cursor: pointer;
+      font-size: 15px; font-weight: 600; color: #fff;
+      font-family: inherit; transition: background 0.15s, transform 0.15s;
+      margin-top: 4px;
+    }
+    .imsg-panel-close:hover { background: #0a84ff; transform: scale(1.03); }
+
+    /* ─── MOBILE ─────────────────────────────────────────────────── */
+    @media (max-width: 430px) {
+      #imsg-window {
+        right: 0; bottom: 0;
+        width: 100vw; height: 100dvh;
+        border-radius: 0;
+        border-top-left-radius: 22px;
+        border-top-right-radius: 22px;
+      }
+      #imsg-launcher { bottom: 20px; right: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Demo store background -->
+<div class="demo-bg">
+  <div class="demo-logo-text">Carbon Conceptz</div>
+  <div class="demo-title">Your Store</div>
+</div>
+
+<!-- ─── LAUNCHER ─────────────────────────────────────────────────── -->
+<button id="imsg-launcher" aria-label="Open chat" onclick="imsgToggle()">
+  <div id="imsg-launcher-inner">
+    <img id="imsg-launcher-logo" src="" alt="" />
+    <svg id="imsg-launcher-icon" width="30" height="30" viewBox="0 0 28 28" fill="none">
+      <path d="M14 2C7.373 2 2 6.925 2 13c0 2.21.72 4.26 1.95 5.96L2.5 22.5l4.04-1.3A12.07 12.07 0 0014 24c6.627 0 12-4.925 12-11S20.627 2 14 2z" fill="white"/>
+    </svg>
+    <svg id="imsg-launcher-close" width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path d="M18 6L6 18M6 6l12 12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <span id="imsg-badge">1</span>
+</button>
+
+<!-- ─── CHAT WINDOW ───────────────────────────────────────────────── -->
+<div id="imsg-window" role="dialog" aria-label="Chat support">
+
+  <!-- Upload / Settings Panel (overlay) -->
+  <div id="imsg-upload-panel">
+    <div class="imsg-panel-title">Customize Widget</div>
+    <div class="imsg-panel-subtitle">Upload your agent photo and brand logo.<br/>Images are saved in your browser.</div>
+
+    <!-- Agent Photo -->
+    <div class="imsg-upload-row">
+      <div class="imsg-upload-label">Agent Profile Photo</div>
+      <div class="imsg-dropzone" id="imsg-dz-avatar"
+           ondragover="imsgDragOver(event,'imsg-dz-avatar')"
+           ondragleave="imsgDragLeave('imsg-dz-avatar')"
+           ondrop="imsgDrop(event,'avatar')">
+        <input type="file" id="imsg-avatar-file" accept="image/*" onchange="imsgFileChange(event,'avatar')" />
+        <img class="imsg-dz-preview" id="imsg-dz-avatar-preview" src="" alt="Preview" />
+        <div class="imsg-dropzone-icon" id="imsg-dz-avatar-icon">🧑‍💼</div>
+        <div class="imsg-dropzone-text"><strong>Click to upload</strong> or drag & drop<br/>PNG, JPG, WEBP — recommended 200×200px</div>
+      </div>
+    </div>
+
+    <!-- Brand Logo -->
+    <div class="imsg-upload-row">
+      <div class="imsg-upload-label">Brand Logo (Header Banner)</div>
+      <div class="imsg-dropzone" id="imsg-dz-logo"
+           ondragover="imsgDragOver(event,'imsg-dz-logo')"
+           ondragleave="imsgDragLeave('imsg-dz-logo')"
+           ondrop="imsgDrop(event,'logo')">
+        <input type="file" id="imsg-logo-file" accept="image/*" onchange="imsgFileChange(event,'logo')" />
+        <img class="imsg-dz-preview-banner" id="imsg-dz-logo-preview" src="" alt="Preview" />
+        <div class="imsg-dropzone-icon" id="imsg-dz-logo-icon">🏷️</div>
+        <div class="imsg-dropzone-text"><strong>Click to upload</strong> or drag & drop<br/>PNG, SVG, WEBP — recommended 400×80px</div>
+      </div>
+    </div>
+
+    <button class="imsg-panel-close" onclick="imsgClosePanel()">Done</button>
+  </div>
+
+  <!-- Header -->
+  <div class="imsg-header">
+    <!-- Brand banner -->
+    <div class="imsg-brand-banner">
+      <div class="imsg-brand-banner-bg"></div>
+      <img id="imsg-brand-logo-img" src="" alt="Brand Logo" />
+      <span id="imsg-brand-logo-text">Carbon Conceptz</span>
+      <button class="imsg-banner-upload-btn" onclick="imsgOpenPanel()" title="Upload brand logo & agent photo">
+        ⚙ Customize
+      </button>
+    </div>
+
+    <!-- Agent row -->
+    <div class="imsg-agent-row">
+      <div class="imsg-avatar-wrap">
+        <div class="imsg-avatar" id="imsg-avatar" onclick="imsgOpenPanel()" title="Upload agent photo">
+          <img class="imsg-avatar-photo" id="imsg-avatar-photo" src="" alt="" />
+          <span class="imsg-avatar-initials" id="imsg-avatar-initials">CC</span>
+          <div class="imsg-avatar-overlay">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </div>
+        </div>
+        <div class="imsg-online-dot"></div>
+      </div>
+      <div class="imsg-header-info">
+        <div class="imsg-header-name" id="imsg-agent-name">Support Team</div>
+        <div class="imsg-header-status">Active now</div>
+      </div>
+      <div class="imsg-header-actions">
+        <button class="imsg-hbtn" onclick="imsgToggle()" title="Minimize">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M5 12h14"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages area -->
+  <div class="imsg-messages" id="imsg-msgs"></div>
+
+  <!-- Image preview strip -->
+  <div class="imsg-img-preview-strip" id="imsg-img-strip">
+    <img class="imsg-img-preview-thumb" id="imsg-img-thumb" src="" alt="" />
+    <button class="imsg-img-preview-remove" onclick="imsgClearImgPreview()">✕</button>
+  </div>
+
+  <!-- Quick replies -->
+  <div class="imsg-qr-bar" id="imsg-qr-bar"></div>
+
+  <!-- Input bar -->
+  <div class="imsg-input-bar">
+    <div class="imsg-input-wrap">
+      <button class="imsg-img-btn" onclick="document.getElementById('imsg-msg-img-input').click()" title="Send image">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <rect x="3" y="3" width="18" height="18" rx="3"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="M21 15l-5-5L5 21"/>
+        </svg>
+      </button>
+      <input type="file" id="imsg-msg-img-input" accept="image/*" onchange="imsgMsgImgSelected(event)" />
+      <textarea
+        id="imsg-textarea"
+        class="imsg-textarea"
+        placeholder="iMessage"
+        rows="1"
+        onkeydown="imsgHandleKey(event)"
+        oninput="imsgAutoResize(this); imsgToggleSend()"
+      ></textarea>
+    </div>
+    <button class="imsg-send-btn" id="imsg-send-btn" onclick="imsgSend()" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 19V5M5 12l7-7 7 7"/>
+      </svg>
+    </button>
+  </div>
+
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   ⚙  CONFIGURATION — Edit these values for your store
+   ══════════════════════════════════════════════════════════════════ */
+var IMSG = {
+  agentName:   'Support Team',
+  agentTitle:  'Carbon Conceptz Support',
+  brandName:   'Carbon Conceptz',
+  brandColor:  '#007aff',
+  accentColor: '#0a84ff',
+  greeting:    "Hey! 👋 Welcome to Carbon Conceptz. I'm here to help with carbon fiber cases & auto accessories. What can I help you with today?",
+  quickReplies: ['Track my order 📦', 'Return policy', 'Product info', 'Talk to a human 💬'],
+  featuredProduct: {
+    name:  'Carbon Fiber iPhone 16 Case',
+    price: '$34.99',
+    emoji: '📱',
+    url:   '/products/carbon-fiber-iphone-16-case'
+  }
+};
+/* ══════════════════════════════════════════════════════════════════ */
+
+var imsgIsOpen   = false;
+var imsgMsgCount = 0;
+var imsgPendingImg = null; // base64 of image to send
+
+/* ── INIT ─────────────────────────────────────────────────────────── */
+(function imsgInit() {
+  applyBrandColor(IMSG.brandColor, IMSG.accentColor);
+  document.getElementById('imsg-agent-name').textContent = IMSG.agentName;
+  document.getElementById('imsg-avatar-initials').textContent = getInitials(IMSG.agentName);
+  document.getElementById('imsg-brand-logo-text').textContent = IMSG.brandName;
+  setQRs(IMSG.quickReplies);
+
+  // Restore saved images from localStorage
+  var savedAvatar = localStorage.getItem('imsg_avatar');
+  var savedLogo   = localStorage.getItem('imsg_logo');
+  if (savedAvatar) applyAvatar(savedAvatar);
+  if (savedLogo)   applyLogo(savedLogo);
+})();
+
+function applyBrandColor(color, accent) {
+  var launcher = document.getElementById('imsg-launcher');
+  launcher.style.background   = 'linear-gradient(145deg,' + color + ',' + accent + ')';
+  launcher.style.boxShadow    = '0 4px 28px ' + color + '88, 0 2px 8px rgba(0,0,0,0.3)';
+  var sendBtn = document.getElementById('imsg-send-btn');
+  sendBtn.style.background    = color;
+  sendBtn.style.boxShadow     = '0 2px 12px ' + color + '66';
+  var avatar = document.getElementById('imsg-avatar');
+  avatar.style.background     = 'linear-gradient(135deg,' + color + ',' + accent + ')';
+  var cta = document.querySelector('.imsg-product-cta');
+  if (cta) cta.style.background = color;
+}
+
+function getInitials(name) {
+  return name.split(' ').map(function(w){ return w[0]; }).join('').slice(0,2).toUpperCase();
+}
+
+/* ── TOGGLE OPEN/CLOSE ───────────────────────────────────────────── */
+function imsgToggle() {
+  var win   = document.getElementById('imsg-window');
+  var badge = document.getElementById('imsg-badge');
+  var icon  = document.getElementById('imsg-launcher-icon');
+  var close = document.getElementById('imsg-launcher-close');
+
+  imsgIsOpen = !imsgIsOpen;
+  win.classList.toggle('open', imsgIsOpen);
+  icon.classList.toggle('hide', imsgIsOpen);
+  close.classList.toggle('show', imsgIsOpen);
+
+  if (imsgIsOpen) {
+    badge.style.display = 'none';
+    if (imsgMsgCount === 0) setTimeout(imsgWelcome, 320);
+    setTimeout(function(){ document.getElementById('imsg-textarea').focus(); }, 420);
+  }
+}
+
+/* ── WELCOME FLOW ────────────────────────────────────────────────── */
+function imsgWelcome() {
+  clearMsgs();
+  addDateSep('Today');
+  showTyping(function() {
+    addMsg(IMSG.greeting, 'recv');
+    setTimeout(function() { addProductCard(IMSG.featuredProduct); }, 650);
+  }, 1500);
+}
+
+/* ── MESSAGES ────────────────────────────────────────────────────── */
+function clearMsgs() {
+  document.getElementById('imsg-msgs').innerHTML = '';
+  imsgMsgCount = 0;
+}
+
+function addDateSep(t) {
+  var el = document.getElementById('imsg-msgs');
+  var d = document.createElement('div');
+  d.className = 'imsg-date-sep';
+  d.textContent = t;
+  el.appendChild(d);
+}
+
+function addMsg(text, type) {
+  var el = document.getElementById('imsg-msgs');
+  var row = document.createElement('div');
+  row.className = 'imsg-row ' + type;
+  imsgMsgCount++;
+
+  var bub = document.createElement('div');
+  bub.className = 'imsg-bubble';
+  bub.textContent = text;
+  row.appendChild(bub);
+
+  var ts = document.createElement('div');
+  ts.className = 'imsg-ts';
+  ts.textContent = imsgTime();
+  row.appendChild(ts);
+
+  if (type === 'sent') {
+    var rec = document.createElement('div');
+    rec.className = 'imsg-receipt';
+    rec.textContent = 'Delivered';
+    row.appendChild(rec);
+    setTimeout(function(){ rec.textContent = 'Read'; }, 2200);
+  }
+
+  el.appendChild(row);
+  scrollBottom();
+}
+
+function addImgMsg(src, type) {
+  var el = document.getElementById('imsg-msgs');
+  var row = document.createElement('div');
+  row.className = 'imsg-row ' + type;
+  imsgMsgCount++;
+
+  var wrap = document.createElement('div');
+  wrap.className = 'imsg-bubble-img';
+  var img = document.createElement('img');
+  img.src = src;
+  img.style.maxWidth = '200px';
+  img.style.borderRadius = '14px';
+  wrap.appendChild(img);
+  row.appendChild(wrap);
+
+  var ts = document.createElement('div');
+  ts.className = 'imsg-ts';
+  ts.textContent = imsgTime();
+  row.appendChild(ts);
+
+  if (type === 'sent') {
+    var rec = document.createElement('div');
+    rec.className = 'imsg-receipt';
+    rec.textContent = 'Delivered';
+    row.appendChild(rec);
+    setTimeout(function(){ rec.textContent = 'Read'; }, 2200);
+  }
+
+  el.appendChild(row);
+  scrollBottom();
+}
+
+function addProductCard(p) {
+  var el = document.getElementById('imsg-msgs');
+  var row = document.createElement('div');
+  row.className = 'imsg-row recv';
+
+  var card = document.createElement('a');
+  card.className = 'imsg-product-card';
+  card.href = p.url || '#';
+  card.innerHTML =
+    '<div class="imsg-product-thumb">' + p.emoji + '</div>' +
+    '<div class="imsg-product-body">' +
+      '<div class="imsg-product-name">' + p.name + '</div>' +
+      '<div class="imsg-product-price">' + p.price + '</div>' +
+      '<span class="imsg-product-cta" style="background:' + IMSG.brandColor + '">View Product →</span>' +
+    '</div>';
+  row.appendChild(card);
+  el.appendChild(row);
+  scrollBottom();
+}
+
+function showTyping(cb, delay) {
+  var el = document.getElementById('imsg-msgs');
+  var row = document.createElement('div');
+  row.className = 'imsg-row recv';
+  row.id = 'imsg-typing-row';
+  var ind = document.createElement('div');
+  ind.className = 'imsg-typing';
+  ind.innerHTML = '<span></span><span></span><span></span>';
+  row.appendChild(ind);
+  el.appendChild(row);
+  scrollBottom();
+  setTimeout(function() {
+    var tr = document.getElementById('imsg-typing-row');
+    if (tr) tr.remove();
+    cb();
+  }, delay || 1400);
+}
+
+/* ── SEND ────────────────────────────────────────────────────────── */
+function imsgSend() {
+  var inp  = document.getElementById('imsg-textarea');
+  var text = inp.value.trim();
+  var hasImg = !!imsgPendingImg;
+
+  if (!text && !hasImg) return;
+
+  if (hasImg) {
+    addImgMsg(imsgPendingImg, 'sent');
+    imsgClearImgPreview();
+  }
+  if (text) {
+    addMsg(text, 'sent');
+    inp.value = '';
+    imsgAutoResize(inp);
+    imsgToggleSend();
+    var reply = imsgBotReply(text.toLowerCase());
+    showTyping(function(){ addMsg(reply, 'recv'); }, 1100 + Math.random() * 600);
+  } else if (hasImg) {
+    showTyping(function(){ addMsg("Got it! That's helpful — let me look into that for you. 🔍", 'recv'); }, 1200);
+  }
+}
+
+function imsgBotReply(t) {
+  if (t.includes('track') || t.includes('order'))
+    return "Please share your order number and I'll look that up right away! 📦";
+  if (t.includes('return') || t.includes('refund'))
+    return "We have a 30-day hassle-free return policy. Share your order number and we'll sort it out! 🙌";
+  if (t.includes('human') || t.includes('agent') || t.includes('person'))
+    return "Connecting you to a live agent now... Typical wait is under 2 minutes. ⏱️";
+  if (t.includes('ship') || t.includes('deliver'))
+    return "We ship within 1-2 business days. Standard 5-7 days, Express 2-3 days. Free shipping on orders over $50! 🚚";
+  if (t.includes('discount') || t.includes('promo') || t.includes('code'))
+    return "Use code WELCOME10 for 10% off your first order! 🎉";
+  if (t.includes('carbon') || t.includes('case') || t.includes('phone'))
+    return "Our carbon fiber cases are ultra-lightweight, drop-tested to 6ft, and compatible with wireless charging. Want to see the full lineup?";
+  if (t.includes('auto') || t.includes('car') || t.includes('vehicle'))
+    return "We carry carbon fiber interior trims, steering wheel covers, and custom badges. What's your car model?";
+  var f = [
+    "Great question! Let me check that for you. One moment... 🔍",
+    "Thanks for reaching out! Our team will get back to you shortly. 💬",
+    "I'm on it! Is there anything else I can help with in the meantime?"
+  ];
+  return f[Math.floor(Math.random() * f.length)];
+}
+
+/* ── QUICK REPLIES ───────────────────────────────────────────────── */
+function setQRs(replies) {
+  var el = document.getElementById('imsg-qr-bar');
+  el.innerHTML = replies.map(function(r) {
+    return '<button class="imsg-qr-chip" onclick="imsgQR(this)">' + r + '</button>';
+  }).join('');
+}
+
+function imsgQR(el) {
+  var text = el.textContent;
+  addMsg(text, 'sent');
+  var reply = imsgBotReply(text.toLowerCase());
+  showTyping(function(){ addMsg(reply, 'recv'); }, 1000 + Math.random() * 500);
+}
+
+/* ── IMAGE IN MESSAGE ────────────────────────────────────────────── */
+function imsgMsgImgSelected(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    imsgPendingImg = ev.target.result;
+    var thumb = document.getElementById('imsg-img-thumb');
+    thumb.src = imsgPendingImg;
+    document.getElementById('imsg-img-strip').classList.add('visible');
+    document.getElementById('imsg-send-btn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function imsgClearImgPreview() {
+  imsgPendingImg = null;
+  document.getElementById('imsg-img-strip').classList.remove('visible');
+  document.getElementById('imsg-img-thumb').src = '';
+  imsgToggleSend();
+}
+
+/* ── UPLOAD PANEL ────────────────────────────────────────────────── */
+function imsgOpenPanel() {
+  document.getElementById('imsg-upload-panel').classList.add('open');
+}
+function imsgClosePanel() {
+  document.getElementById('imsg-upload-panel').classList.remove('open');
+}
+
+function imsgFileChange(e, type) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var src = ev.target.result;
+    if (type === 'avatar') {
+      applyAvatar(src);
+      localStorage.setItem('imsg_avatar', src);
+      var prev = document.getElementById('imsg-dz-avatar-preview');
+      prev.src = src;
+      prev.classList.add('visible');
+      document.getElementById('imsg-dz-avatar-icon').style.display = 'none';
+    } else {
+      applyLogo(src);
+      localStorage.setItem('imsg_logo', src);
+      var prev2 = document.getElementById('imsg-dz-logo-preview');
+      prev2.src = src;
+      prev2.classList.add('visible');
+      document.getElementById('imsg-dz-logo-icon').style.display = 'none';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function applyAvatar(src) {
+  // Header avatar
+  var photo = document.getElementById('imsg-avatar-photo');
+  photo.src = src;
+  photo.classList.add('loaded');
+  document.getElementById('imsg-avatar-initials').style.opacity = '0';
+
+  // Launcher logo
+  var launcherLogo = document.getElementById('imsg-launcher-logo');
+  launcherLogo.src = src;
+  launcherLogo.classList.add('loaded');
+  document.getElementById('imsg-launcher-icon').style.opacity = '0';
+}
+
+function applyLogo(src) {
+  var logoImg  = document.getElementById('imsg-brand-logo-img');
+  var logoText = document.getElementById('imsg-brand-logo-text');
+  logoImg.src = src;
+  logoImg.classList.add('loaded');
+  logoText.style.opacity = '0';
+}
+
+/* Drag & drop */
+function imsgDragOver(e, id) {
+  e.preventDefault();
+  document.getElementById(id).classList.add('drag-over');
+}
+function imsgDragLeave(id) {
+  document.getElementById(id).classList.remove('drag-over');
+}
+function imsgDrop(e, type) {
+  e.preventDefault();
+  var id = type === 'avatar' ? 'imsg-dz-avatar' : 'imsg-dz-logo';
+  document.getElementById(id).classList.remove('drag-over');
+  var file = e.dataTransfer.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var src = ev.target.result;
+    if (type === 'avatar') {
+      applyAvatar(src);
+      localStorage.setItem('imsg_avatar', src);
+      var prev = document.getElementById('imsg-dz-avatar-preview');
+      prev.src = src; prev.classList.add('visible');
+      document.getElementById('imsg-dz-avatar-icon').style.display = 'none';
+    } else {
+      applyLogo(src);
+      localStorage.setItem('imsg_logo', src);
+      var prev2 = document.getElementById('imsg-dz-logo-preview');
+      prev2.src = src; prev2.classList.add('visible');
+      document.getElementById('imsg-dz-logo-icon').style.display = 'none';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ── UTILITIES ───────────────────────────────────────────────────── */
+function scrollBottom() {
+  var el = document.getElementById('imsg-msgs');
+  requestAnimationFrame(function(){ el.scrollTop = el.scrollHeight; });
+}
+function imsgTime() {
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+function imsgHandleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); imsgSend(); }
+}
+function imsgAutoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+function imsgToggleSend() {
+  var hasText = !!document.getElementById('imsg-textarea').value.trim();
+  var hasImg  = !!imsgPendingImg;
+  document.getElementById('imsg-send-btn').disabled = !(hasText || hasImg);
+}
+</script>
+</body>
+</html>

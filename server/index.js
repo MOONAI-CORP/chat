@@ -77,40 +77,146 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Widget loader endpoint — returns the JS snippet
-app.get('/loader.js', (req, res) => {
-  const widgetHost = process.env.WIDGET_HOST || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+// Widget HTML endpoint — serves the full widget as injectable HTML
+app.get('/widget.html', (req, res) => {
+  const fs = require('fs');
+  const widgetPath = path.join(__dirname, '..', 'widget', 'chat-widget.html');
+  let html = fs.readFileSync(widgetPath, 'utf8');
+
+  // Replace config values
   const storeName = process.env.WIDGET_STORE_NAME || 'Limited Armor';
   const storeUrl = process.env.WIDGET_STORE_URL || 'https://limitedarmor.com';
-  const avatar = process.env.WIDGET_AVATAR || '🛡️';
   const supportEmail = process.env.WIDGET_SUPPORT_EMAIL || 'support@limitedarmor.com';
+  const widgetHost = process.env.WIDGET_HOST || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+
+  html = html.replace(/Carbon Conceptz/g, storeName);
+  html = html.replace("agentName:   'Support Team'", `agentName:   '${storeName}'`);
+  html = html.replace("brandName:   '" + storeName + "'", `brandName:   '${storeName}'`);
+  html = html.replace("agentTitle:  'Carbon Conceptz Support'", `agentTitle:  '${storeName} Support'`);
+
+  // Inject API config and override the send function
+  const apiOverride = `
+<script>
+var IMSG_API_HOST = "${widgetHost}";
+var imsgConversationId = sessionStorage.getItem('cozy_convo_id') || null;
+var imsgVisitorId = (function() {
+  var id = localStorage.getItem('cozy_visitor_id');
+  if (!id) { id = 'v_' + Math.random().toString(36).substr(2,12) + Date.now().toString(36); localStorage.setItem('cozy_visitor_id', id); }
+  return id;
+})();
+var imsgTypingLock = false;
+
+// Override imsgSend to use real API
+var _origImsgSend = imsgSend;
+imsgSend = function() {
+  var inp = document.getElementById('imsg-textarea');
+  var text = inp.value.trim();
+  var hasImg = !!imsgPendingImg;
+  if ((!text && !hasImg) || imsgTypingLock) return;
+
+  if (hasImg) { addImgMsg(imsgPendingImg, 'sent'); imsgClearImgPreview(); }
+  if (text) {
+    addMsg(text, 'sent');
+    inp.value = '';
+    imsgAutoResize(inp);
+    imsgToggleSend();
+    imsgTypingLock = true;
+    showTyping(null);
+
+    fetch(IMSG_API_HOST + '/api/chat/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversationId: imsgConversationId,
+        visitorId: imsgVisitorId,
+        message: text,
+        sourcePage: window.location.pathname
+      })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var tr = document.getElementById('imsg-typing-row');
+      if (tr) tr.remove();
+      imsgTypingLock = false;
+      imsgConversationId = data.conversationId;
+      sessionStorage.setItem('cozy_convo_id', data.conversationId);
+      if (data.message) addMsg(data.message, 'recv');
+      if (data.productCards && data.productCards.length > 0) {
+        data.productCards.forEach(function(c) {
+          addProductCard({ name: c.title, price: '$' + parseFloat(c.price).toFixed(2), emoji: '📱', url: c.url, image: c.image });
+        });
+      }
+    })
+    .catch(function(err) {
+      var tr = document.getElementById('imsg-typing-row');
+      if (tr) tr.remove();
+      imsgTypingLock = false;
+      console.error('Chat error:', err);
+      addMsg("Sorry, having a moment! Email us at ${supportEmail} 💙", 'recv');
+    });
+  } else if (hasImg) {
+    showTyping(function(){ addMsg("Got it! Let me look into that. 🔍", 'recv'); }, 1200);
+  }
+};
+
+// Override imsgQR to use API too
+imsgQR = function(el) {
+  document.getElementById('imsg-textarea').value = el.textContent;
+  imsgSend();
+};
+</script>`;
+
+  // Remove the demo background div
+  html = html.replace(/<div class="demo-bg">[\s\S]*?<\/div>\s*<\/div>/m, '');
+
+  // Inject API override before </body>
+  html = html.replace('</body>', apiOverride + '\n</body>');
+
+  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.send(html);
+});
+
+// Widget loader endpoint — fetches and injects the full widget HTML
+app.get('/loader.js', (req, res) => {
+  const widgetHost = process.env.WIDGET_HOST || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
   res.setHeader('Content-Type', 'application/javascript');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  const version = Date.now();
   res.setHeader('Cache-Control', 'public, max-age=300');
   res.send(`
     (function() {
       if (window.__cozyChatLoaded) return;
       window.__cozyChatLoaded = true;
-      window.__cozyChatConfig = {
-        host: "${widgetHost}",
-        storeName: "${storeName}",
-        storeUrl: "${storeUrl}",
-        avatar: "${avatar}",
-        supportEmail: "${supportEmail}"
-      };
-      var link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = '${widgetHost}/widget/css/widget.css?v=' + ${version};
-      document.head.appendChild(link);
-      var script = document.createElement('script');
-      script.src = '${widgetHost}/widget/js/behavioral.js?v=' + ${version};
-      script.onload = function() {
-        var main = document.createElement('script');
-        main.src = '${widgetHost}/widget/js/widget.js?v=' + ${version};
-        document.body.appendChild(main);
-      };
-      document.body.appendChild(script);
+      fetch("${widgetHost}/widget.html")
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+          // Extract style and inject
+          var styleMatch = html.match(/<style>([\\s\\S]*?)<\\/style>/);
+          if (styleMatch) {
+            var s = document.createElement('style');
+            s.textContent = styleMatch[1];
+            document.head.appendChild(s);
+          }
+          // Extract body content (between </style></head><body> and <script>)
+          var bodyMatch = html.match(/<body>([\\s\\S]*?)<script>/);
+          if (bodyMatch) {
+            var d = document.createElement('div');
+            d.innerHTML = bodyMatch[1];
+            while (d.firstChild) document.body.appendChild(d.firstChild);
+          }
+          // Extract and run all scripts
+          var scripts = html.match(/<script>([\\s\\S]*?)<\\/script>/g);
+          if (scripts) {
+            scripts.forEach(function(s) {
+              var code = s.replace(/<\\/?script>/g, '');
+              var el = document.createElement('script');
+              el.textContent = code;
+              document.body.appendChild(el);
+            });
+          }
+        })
+        .catch(function(e) { console.error('Widget load error:', e); });
     })();
   `);
 });
