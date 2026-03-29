@@ -174,3 +174,14 @@ setInterval(() => {
 }, 30000);
 
 module.exports = app;
+
+// ── Keep-alive ping (prevents Render free tier sleep) ──
+if (process.env.NODE_ENV === 'production') {
+  const SELF_URL = process.env.WIDGET_HOST || process.env.RENDER_EXTERNAL_URL;
+  if (SELF_URL) {
+    setInterval(() => {
+      fetch(SELF_URL + '/health').catch(() => {});
+    }, 14 * 60 * 1000); // every 14 minutes
+    console.log('  Keep-alive: pinging ' + SELF_URL + '/health every 14m');
+  }
+}
