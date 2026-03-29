@@ -8,10 +8,12 @@
     /* ─── RESET ─────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
+    html, body {
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-      background: #f2f2f7;
+      background: transparent !important;
       min-height: 100vh;
+      margin: 0;
+      overflow: hidden;
     }
 
     /* ─── DEMO STORE MOCKUP ─────────────────────────────────────── */
@@ -546,11 +548,6 @@
 </head>
 <body>
 
-<!-- Demo store background -->
-<div class="demo-bg">
-  <div class="demo-logo-text">Limited Armor</div>
-  <div class="demo-title">Your Store</div>
-</div>
 
 <!-- ─── LAUNCHER ─────────────────────────────────────────────────── -->
 <button id="imsg-launcher" aria-label="Open chat" onclick="imsgToggle()">

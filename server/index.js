@@ -177,7 +177,7 @@ imsgQR = function(el) {
   res.send(html);
 });
 
-// Widget loader endpoint — fetches and injects the full widget HTML
+// Widget loader endpoint — injects widget via invisible iframe overlay
 app.get('/loader.js', (req, res) => {
   const widgetHost = process.env.WIDGET_HOST || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
   res.setHeader('Content-Type', 'application/javascript');
@@ -187,35 +187,17 @@ app.get('/loader.js', (req, res) => {
     (function() {
       if (window.__cozyChatLoaded) return;
       window.__cozyChatLoaded = true;
-      fetch("${widgetHost}/widget.html")
-        .then(function(r) { return r.text(); })
-        .then(function(html) {
-          // Extract style and inject
-          var styleMatch = html.match(/<style>([\\s\\S]*?)<\\/style>/);
-          if (styleMatch) {
-            var s = document.createElement('style');
-            s.textContent = styleMatch[1];
-            document.head.appendChild(s);
-          }
-          // Extract body content (between </style></head><body> and <script>)
-          var bodyMatch = html.match(/<body>([\\s\\S]*?)<script>/);
-          if (bodyMatch) {
-            var d = document.createElement('div');
-            d.innerHTML = bodyMatch[1];
-            while (d.firstChild) document.body.appendChild(d.firstChild);
-          }
-          // Extract and run all scripts
-          var scripts = html.match(/<script>([\\s\\S]*?)<\\/script>/g);
-          if (scripts) {
-            scripts.forEach(function(s) {
-              var code = s.replace(/<\\/?script>/g, '');
-              var el = document.createElement('script');
-              el.textContent = code;
-              document.body.appendChild(el);
-            });
-          }
-        })
-        .catch(function(e) { console.error('Widget load error:', e); });
+      var f = document.createElement('iframe');
+      f.src = "${widgetHost}/widget.html";
+      f.id = "cozy-chat-frame";
+      f.style.cssText = "position:fixed;bottom:0;right:0;width:450px;height:700px;border:none;z-index:2147483640;pointer-events:none;background:transparent;";
+      f.setAttribute("allowtransparency", "true");
+      f.allow = "clipboard-write";
+      document.body.appendChild(f);
+      f.onload = function() {
+        // Let clicks through to the widget elements
+        f.style.pointerEvents = "auto";
+      };
     })();
   `);
 });
