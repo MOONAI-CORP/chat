@@ -89,10 +89,9 @@ app.get('/widget.html', (req, res) => {
   const supportEmail = process.env.WIDGET_SUPPORT_EMAIL || 'support@limitedarmor.com';
   const widgetHost = process.env.WIDGET_HOST || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
 
-  html = html.replace(/Carbon Conceptz/g, storeName);
-  html = html.replace("agentName:   'Support Team'", `agentName:   '${storeName}'`);
-  html = html.replace("brandName:   '" + storeName + "'", `brandName:   '${storeName}'`);
-  html = html.replace("agentTitle:  'Carbon Conceptz Support'", `agentTitle:  '${storeName} Support'`);
+  // Replace store name throughout
+  html = html.replace(/Limited Armor/g, storeName);
+  html = html.replace(/LA<\/span>/g, storeName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase() + '</span>');
 
   // Inject API config and override the send function
   const apiOverride = `

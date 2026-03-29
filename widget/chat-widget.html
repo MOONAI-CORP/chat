@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>iMessage Chat Widget v2 — Carbon Conceptz</title>
+  <title>iMessage Chat Widget v2 — Limited Armor</title>
   <style>
     /* ─── RESET ─────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -548,7 +548,7 @@
 
 <!-- Demo store background -->
 <div class="demo-bg">
-  <div class="demo-logo-text">Carbon Conceptz</div>
+  <div class="demo-logo-text">Limited Armor</div>
   <div class="demo-title">Your Store</div>
 </div>
 
@@ -611,7 +611,7 @@
     <div class="imsg-brand-banner">
       <div class="imsg-brand-banner-bg"></div>
       <img id="imsg-brand-logo-img" src="" alt="Brand Logo" />
-      <span id="imsg-brand-logo-text">Carbon Conceptz</span>
+      <span id="imsg-brand-logo-text">Limited Armor</span>
       <button class="imsg-banner-upload-btn" onclick="imsgOpenPanel()" title="Upload brand logo & agent photo">
         ⚙ Customize
       </button>
@@ -622,7 +622,7 @@
       <div class="imsg-avatar-wrap">
         <div class="imsg-avatar" id="imsg-avatar" onclick="imsgOpenPanel()" title="Upload agent photo">
           <img class="imsg-avatar-photo" id="imsg-avatar-photo" src="" alt="" />
-          <span class="imsg-avatar-initials" id="imsg-avatar-initials">CC</span>
+          <span class="imsg-avatar-initials" id="imsg-avatar-initials">LA</span>
           <div class="imsg-avatar-overlay">
             <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
               <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
@@ -692,19 +692,14 @@
    ⚙  CONFIGURATION — Edit these values for your store
    ══════════════════════════════════════════════════════════════════ */
 var IMSG = {
-  agentName:   'Support Team',
-  agentTitle:  'Carbon Conceptz Support',
-  brandName:   'Carbon Conceptz',
+  agentName:   'Limited Armor',
+  agentTitle:  'Limited Armor Support',
+  brandName:   'Limited Armor',
   brandColor:  '#007aff',
   accentColor: '#0a84ff',
-  greeting:    "Hey! 👋 Welcome to Carbon Conceptz. I'm here to help with carbon fiber cases & auto accessories. What can I help you with today?",
-  quickReplies: ['Track my order 📦', 'Return policy', 'Product info', 'Talk to a human 💬'],
-  featuredProduct: {
-    name:  'Carbon Fiber iPhone 16 Case',
-    price: '$34.99',
-    emoji: '📱',
-    url:   '/products/carbon-fiber-iphone-16-case'
-  }
+  greeting:    "Hey! 👋 Welcome to Limited Armor. I'm here to help you find the perfect case, band, or accessory. What device are you shopping for?",
+  quickReplies: ['iPhone cases 📱', 'Watch bands ⌚', 'Track my order 📦', 'Buy 2 Get 1 Free?'],
+  featuredProduct: null
 };
 /* ══════════════════════════════════════════════════════════════════ */
 
@@ -769,7 +764,9 @@ function imsgWelcome() {
   addDateSep('Today');
   showTyping(function() {
     addMsg(IMSG.greeting, 'recv');
-    setTimeout(function() { addProductCard(IMSG.featuredProduct); }, 650);
+    if (IMSG.featuredProduct) {
+      setTimeout(function() { addProductCard(IMSG.featuredProduct); }, 650);
+    }
   }, 1500);
 }
 
@@ -910,26 +907,8 @@ function imsgSend() {
 }
 
 function imsgBotReply(t) {
-  if (t.includes('track') || t.includes('order'))
-    return "Please share your order number and I'll look that up right away! 📦";
-  if (t.includes('return') || t.includes('refund'))
-    return "We have a 30-day hassle-free return policy. Share your order number and we'll sort it out! 🙌";
-  if (t.includes('human') || t.includes('agent') || t.includes('person'))
-    return "Connecting you to a live agent now... Typical wait is under 2 minutes. ⏱️";
-  if (t.includes('ship') || t.includes('deliver'))
-    return "We ship within 1-2 business days. Standard 5-7 days, Express 2-3 days. Free shipping on orders over $50! 🚚";
-  if (t.includes('discount') || t.includes('promo') || t.includes('code'))
-    return "Use code WELCOME10 for 10% off your first order! 🎉";
-  if (t.includes('carbon') || t.includes('case') || t.includes('phone'))
-    return "Our carbon fiber cases are ultra-lightweight, drop-tested to 6ft, and compatible with wireless charging. Want to see the full lineup?";
-  if (t.includes('auto') || t.includes('car') || t.includes('vehicle'))
-    return "We carry carbon fiber interior trims, steering wheel covers, and custom badges. What's your car model?";
-  var f = [
-    "Great question! Let me check that for you. One moment... 🔍",
-    "Thanks for reaching out! Our team will get back to you shortly. 💬",
-    "I'm on it! Is there anything else I can help with in the meantime?"
-  ];
-  return f[Math.floor(Math.random() * f.length)];
+  // Fallback only — real replies come from the API override
+  return "Let me look into that for you...";
 }
 
 /* ── QUICK REPLIES ───────────────────────────────────────────────── */
